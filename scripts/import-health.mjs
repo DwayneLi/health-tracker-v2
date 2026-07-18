@@ -14,10 +14,14 @@
  *   - 活动能量 (ActiveEnergyBurned)
  */
 
-import { createReadStream, readFileSync, writeFileSync } from "fs";
+import { createReadStream, writeFileSync, existsSync, mkdirSync } from "fs";
 import { createInterface } from "readline";
+import { createRequire } from "module";
 import * as path from "path";
-import * as XLSX from "xlsx";
+
+// 从项目根目录的 node_modules 加载 xlsx
+const require = createRequire(import.meta.url);
+const XLSX = require("xlsx");
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const XML_PATH = path.join(DATA_DIR, "export.xml");
@@ -62,6 +66,14 @@ let count = 0;
 let skipped = 0;
 
 console.log("📖 正在解析 export.xml（可能很大，请耐心等待）...");
+
+if (!existsSync(XML_PATH)) {
+  console.error(`❌ 找不到 ${XML_PATH}`);
+  console.error("   请把 Apple Health 导出的 export.xml 放到 data/ 目录下");
+  process.exit(1);
+}
+
+mkdirSync(DATA_DIR, { recursive: true });
 
 const stream = createReadStream(XML_PATH, { encoding: "utf-8" });
 const rl = createInterface({ input: stream });
