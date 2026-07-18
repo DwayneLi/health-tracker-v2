@@ -1,0 +1,193 @@
+{
+  "WFWorkflowClientVersion": "4115.5",
+  "WFWorkflowClientRelease": "26.5",
+  "WFWorkflowIcon": {
+    "WFWorkflowIconStartColor": 4282601983,
+    "WFWorkflowIconGlyphNumber": 61442
+  },
+  "WFWorkflowImportQuestions": [
+    {
+      "Category": "Parameter",
+      "ActionIndex": 11,
+      "ParameterKey": "WFURL",
+      "Text": "你的 Health Tracker 部署地址是什么？（例如 http://192.168.1.5:3000）",
+      "DefaultValue": "http://localhost:3000"
+    }
+  ],
+  "WFWorkflowTypes": ["Watch", "Siri", "NCWidget"],
+  "WFWorkflowInputContentItemClasses": [],
+  "WFWorkflowActions": [
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gethealthsample",
+      "WFWorkflowActionParameters": {
+        "WFHealthSampleType": "HKQuantityTypeIdentifierBodyMass",
+        "WFHealthSampleSortOrder": "LatestFirst",
+        "WFHealthSampleLimit": 1,
+        "WFHealthSampleUnit": "kg"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.health.quantity",
+      "WFWorkflowActionParameters": {
+        "WFInput": {"OutputName": "健康样本", "WFSerializationType": "WFGetHealthSampleAction"},
+        "WFHealthQuantityProperty": "Value"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.health.date",
+      "WFWorkflowActionParameters": {
+        "WFInput": {"OutputName": "健康样本", "WFSerializationType": "WFGetHealthSampleAction"},
+        "WFHealthDateProperty": "Start Date"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.date.format",
+      "WFWorkflowActionParameters": {
+        "WFDateFormatStyle": "Custom",
+        "WFDateFormatterDateFormatTemplate": "yyyy-MM-dd"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gethealthsample",
+      "WFWorkflowActionParameters": {
+        "WFHealthSampleType": "HKQuantityTypeIdentifierBodyFatPercentage",
+        "WFHealthSampleSortOrder": "LatestFirst",
+        "WFHealthSampleLimit": 1,
+        "WFHealthSampleUnit": "%"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.health.quantity",
+      "WFWorkflowActionParameters": {
+        "WFInput": {"OutputName": "健康样本", "WFSerializationType": "WFGetHealthSampleAction"},
+        "WFHealthQuantityProperty": "Value"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gethealthsample",
+      "WFWorkflowActionParameters": {
+        "WFHealthSampleType": "HKCategoryTypeIdentifierSleepAnalysis",
+        "WFHealthSampleSortOrder": "LatestFirst",
+        "WFHealthSampleLimit": 1
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.health.sample",
+      "WFWorkflowActionParameters": {
+        "WFInput": {"OutputName": "健康样本", "WFSerializationType": "WFGetHealthSampleAction"},
+        "WFHealthSampleProperty": "Duration"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.math.calculate",
+      "WFWorkflowActionParameters": {
+        "WFMathOperand": 3600,
+        "WFMathOperation": "÷"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gethealthsample",
+      "WFWorkflowActionParameters": {
+        "WFHealthSampleType": "HKQuantityTypeIdentifierActiveEnergyBurned",
+        "WFHealthSampleSortOrder": "LatestFirst",
+        "WFHealthSampleLimit": 1,
+        "WFHealthSampleUnit": "kcal"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.properties.health.quantity",
+      "WFWorkflowActionParameters": {
+        "WFInput": {"OutputName": "健康样本", "WFSerializationType": "WFGetHealthSampleAction"},
+        "WFHealthQuantityProperty": "Value"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.dictionary.build",
+      "WFWorkflowActionParameters": {
+        "WFItems": {
+          "Value": {
+            "WFDictionaryFieldValueItems": [
+              {
+                "WFItemType": 0,
+                "WFKey": "records",
+                "WFValue": {
+                  "Value": {
+                    "WFDictionaryFieldValueItems": [
+                      {
+                        "WFItemType": 0,
+                        "WFKey": "type",
+                        "WFValue": {"Value": {"string": "weight"}, "WFSerializationType": "WFTextTokenString"}
+                      },
+                      {
+                        "WFItemType": 0,
+                        "WFKey": "value",
+                        "WFValue": {"Value": {"attachmentsByRange": {"0000": {"OutputName": "值", "OutputUUID": "WEIGHT-VALUE-UUID", "Type": "ActionOutput"}}}, "WFSerializationType": "WFTextTokenAttachment"}
+                      },
+                      {
+                        "WFItemType": 0,
+                        "WFKey": "unit",
+                        "WFValue": {"Value": {"string": "kg"}, "WFSerializationType": "WFTextTokenString"}
+                      },
+                      {
+                        "WFItemType": 0,
+                        "WFKey": "date",
+                        "WFValue": {"Value": {"attachmentsByRange": {"0000": {"OutputName": "格式化日期", "OutputUUID": "DATE-UUID", "Type": "ActionOutput"}}}, "WFSerializationType": "WFTextTokenAttachment"}
+                      },
+                      {
+                        "WFItemType": 0,
+                        "WFKey": "source",
+                        "WFValue": {"Value": {"string": "Apple Health"}, "WFSerializationType": "WFTextTokenString"}
+                      }
+                    ]
+                  },
+                  "WFSerializationType": "WFDictionaryFieldValue"
+                }
+              }
+            ]
+          },
+          "WFSerializationType": "WFDictionaryFieldValue"
+        }
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.gettext",
+      "WFWorkflowActionParameters": {
+        "WFText": {"Value": {"attachmentsByRange": {"0000": {"OutputName": "词典", "OutputUUID": "DICT-UUID", "Type": "ActionOutput"}}}, "WFSerializationType": "WFTextTokenAttachment"}
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.geturl",
+      "WFWorkflowActionParameters": {
+        "WFURL": "http://localhost:3000/api/sync"
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.getcontentsofurl",
+      "WFWorkflowActionParameters": {
+        "WFHTTPMethod": "POST",
+        "WFHTTPBodyType": "JSON",
+        "WFJSONValues": {"Value": {"attachmentsByRange": {"0000": {"OutputName": "文本", "OutputUUID": "TEXT-UUID", "Type": "ActionOutput"}}}, "WFSerializationType": "WFTextTokenAttachment"},
+        "WFHTTPHeaders": {
+          "Value": {
+            "WFDictionaryFieldValueItems": [
+              {
+                "WFItemType": 0,
+                "WFKey": "Content-Type",
+                "WFValue": {"Value": {"string": "application/json"}, "WFSerializationType": "WFTextTokenString"}
+              }
+            ]
+          },
+          "WFSerializationType": "WFDictionaryFieldValue"
+        }
+      }
+    },
+    {
+      "WFWorkflowActionIdentifier": "is.workflow.actions.conditional",
+      "WFWorkflowActionParameters": {
+        "WFCondition": 4,
+        "WFConditionalActionString": "200",
+        "UUID": "STATUS-CHECK"
+      }
+    }
+  ]
+}
