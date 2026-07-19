@@ -144,7 +144,7 @@ export default function SleepPage() {
         )}
 
         <div className="flex gap-3">
-          <button onClick={handleSubmit} disabled={submitting}
+          <button onClick={() => handleSubmit()} disabled={submitting}
             className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50">
             {submitting ? "记录中..." : "💾 记录"}
           </button>

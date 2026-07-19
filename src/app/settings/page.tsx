@@ -90,7 +90,8 @@ export default function SettingsPage() {
               <div className="flex gap-3">
                 <span className="text-blue-500 font-bold shrink-0">3.</span>
                 <span>
-                  首次运行时会弹出四项健康数据授权，全部点击「允许」
+                  首次运行时会弹出<b>三项</b>健康数据授权（体重/体脂率/活动能量），全部点击「允许」<br />
+                  <span className="text-blue-500">注：<b>睡眠</b>不在快捷指令同步范围内，请前往"😴 睡眠"标签页手动录入。</span>
                 </span>
               </div>
               <div className="flex gap-3">
@@ -128,7 +129,7 @@ export default function SettingsPage() {
 
           {/* 同步数据说明表格 */}
           <h3 className="text-sm font-medium text-gray-700 mb-3">
-            📊 四项同步数据说明
+            📊 三项同步数据说明
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -153,12 +154,6 @@ export default function SettingsPage() {
                   <td className="py-2 pr-4">智能体脂秤</td>
                   <td className="py-2">%</td>
                 </tr>
-                <tr className="border-b">
-                  <td className="py-2 pr-4">睡眠</td>
-                  <td className="py-2 pr-4 text-xs">HKCategoryTypeIdentifierSleepAnalysis</td>
-                  <td className="py-2 pr-4">Apple Watch 或 iPhone</td>
-                  <td className="py-2">hours</td>
-                </tr>
                 <tr>
                   <td className="py-2 pr-4">活动卡路里</td>
                   <td className="py-2 pr-4 text-xs">HKQuantityTypeIdentifierActiveEnergyBurned</td>
@@ -167,6 +162,16 @@ export default function SettingsPage() {
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          {/* 睡眠说明（手动录入） */}
+          <div className="bg-blue-50 rounded-lg p-5 border border-blue-100">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">😴 睡眠数据 · 手动录入</h4>
+            <p className="text-sm text-blue-700 mb-3">
+              睡眠不通过快捷指令自动同步。请在「睡眠」标签页手动录入，默认 7.5 小时。
+              也可定期用 <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">scripts/import-health.mjs</code> 脚本
+              解析 Apple Health export.xml 批量导入历史数据。
+            </p>
           </div>
         </div>
 
