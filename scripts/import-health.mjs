@@ -51,6 +51,13 @@ const activeData     = new Map(); // date → { value, source }
 const sleepRaw = []; // [{ date, hours, sourceName }]
 
 let count = 0;
+let skippedOld = 0;
+
+// 只导入过去 90 天的数据
+const nowDate = new Date();
+const cutoffDate = new Date(nowDate.getTime() - 90 * 24 * 3600000);
+const cutoffDateStr = cutoffDate.toISOString().split("T")[0];
+console.log(`📅 只导入 ${cutoffDateStr} 之后的数据（过去90天）`);
 
 console.log("📖 正在解析 export.xml（可能很大，请耐心等待）...");
 
@@ -85,6 +92,9 @@ for await (const line of rl) {
   }
 
   const date = startDate.split(" ")[0];
+
+  // 跳过 90 天前的旧数据
+  if (date < cutoffDateStr) { skippedOld++; continue; }
 
   // ---- 体重 ----
   if (type === TYPES.BODY_MASS) {
@@ -189,7 +199,7 @@ for (const [date, vals] of Object.entries(nightGroups)) {
   }
 }
 
-console.log(`✅ 解析完成：${count} 条记录`);
+console.log(`✅ 解析完成：${count} 条记录（跳过 ${skippedOld} 条 90 天前的旧数据）`);
 console.log(`   体重 ${weightData.size} 天 · 体脂率 ${bodyFatData.size} 天 · 睡眠 ${sleepByDate.size} 天 · 活动卡路里 ${activeData.size} 天`);
 
 // ============================================================
