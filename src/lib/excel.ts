@@ -147,15 +147,24 @@ export function ensureFile(): void {
         XLSX.utils.book_append_sheet(wb, ws, name);
         changed = true;
       } else {
-        // 已有 Sheet：检查是否缺少列
+        // 已有 Sheet：检查表头是否与 v2 完全一致
         const sheetData = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[name], { header: 1, defval: "" });
-        const existingHeaders = sheetData.length > 0 ? sheetData[0] : [];
-        const missing = headers.filter(h => !existingHeaders.includes(h));
-        if (missing.length > 0) {
-          // 在每行末尾追加缺失列的空值
-          const newData = sheetData.map((row, i) =>
-            i === 0 ? [...row, ...missing] : [...row, ...missing.map(() => "")]
-          );
+        const existingHeaders: string[] = sheetData.length > 0 ? sheetData[0] : [];
+        const headersMatch =
+          existingHeaders.length === headers.length &&
+          headers.every((h, i) => h === existingHeaders[i]);
+
+        if (!headersMatch) {
+          // 表头不一致 → 按 v2 表头重建整个 Sheet
+          const oldDataRows = sheetData.slice(1); // 跳过旧表头行
+          const newData = [headers];
+          for (const oldRow of oldDataRows) {
+            const newRow = headers.map((h, i) => {
+              const idx = existingHeaders.indexOf(h);
+              return idx >= 0 && idx < oldRow.length ? oldRow[idx] : "";
+            });
+            newData.push(newRow);
+          }
           const newWs = XLSX.utils.aoa_to_sheet(newData);
           wb.Sheets[name] = newWs;
           changed = true;

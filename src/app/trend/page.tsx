@@ -184,11 +184,11 @@ export default function TrendPage() {
                       }`}
                     >
                       {data.weight.stats.change > 0 ? "+" : ""}
-                      {data.weight.stats.change} kg
+                      {data.weight.stats.change.toFixed(1)} kg
                     </p>
                     <p className="text-xs text-gray-400">
                       ({data.weight.stats.changePct > 0 ? "+" : ""}
-                      {data.weight.stats.changePct}%)
+                      {data.weight.stats.changePct.toFixed(1)}%)
                     </p>
                   </div>
                 )}
@@ -205,7 +205,7 @@ export default function TrendPage() {
                       }`}
                     >
                       {data.bodyFat.stats.change > 0 ? "+" : ""}
-                      {data.bodyFat.stats.change}%
+                      {data.bodyFat.stats.change.toFixed(1)}%
                     </p>
                   </div>
                 )}
@@ -213,7 +213,7 @@ export default function TrendPage() {
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-xs text-gray-400">睡眠均值</p>
                     <p className="text-lg font-bold">
-                      {data.sleep.stats.avg}h
+                      {data.sleep.stats.avg.toFixed(1)}h
                     </p>
                     <p className="text-xs text-gray-400">
                       {data.sleep.stats.daysBelow7h > 0
@@ -226,10 +226,10 @@ export default function TrendPage() {
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <p className="text-xs text-gray-400">活动卡路里日均</p>
                     <p className="text-lg font-bold">
-                      {data.activeEnergy.stats.avg} kcal
+                      {Math.round(data.activeEnergy.stats.avg)} kcal
                     </p>
                     <p className="text-xs text-gray-400">
-                      总计 {data.activeEnergy.stats.total} kcal
+                      总计 {Math.round(data.activeEnergy.stats.total)} kcal
                     </p>
                   </div>
                 )}
@@ -241,8 +241,8 @@ export default function TrendPage() {
                     {Math.round(data.diet.stats.calorieGoalHitRate * 100)}%
                   </p>
                   <p className="text-xs text-gray-400">
-                    日均摄入 {data.diet.stats.avgDailyCalories} kcal · 蛋白质{" "}
-                    {data.diet.stats.avgProtein}g
+                    日均摄入 {Math.round(data.diet.stats.avgDailyCalories)} kcal · 蛋白质{" "}
+                    {Math.round(data.diet.stats.avgProtein)}g
                   </p>
                 </div>
               )}
