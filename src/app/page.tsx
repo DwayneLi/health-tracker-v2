@@ -115,6 +115,8 @@ export default function DashboardPage() {
   const [trendFlags, setTrendFlags] = useState<TrendFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [weightDays, setWeightDays] = useState(7);
+  const [bodyFatDays, setBodyFatDays] = useState(7);
 
   useEffect(() => {
     Promise.all([
@@ -163,6 +165,35 @@ export default function DashboardPage() {
   }
 
   const calorieTarget = data.goal?.dailyCalorieTarget || 2000;
+
+  // Y轴：体重 ±2.5kg，取整到 5 的倍数
+  function weightDomain(weights: { weight: number }[]): [number, number] {
+    if (weights.length === 0) return [0, 100];
+    const vals = weights.map(w => w.weight);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const pad = 2.5;
+    const lower = Math.floor((min - pad) / 5) * 5;
+    const upper = Math.ceil((max + pad) / 5) * 5;
+    return [lower, upper];
+  }
+
+  // Y轴：体脂率 ±2%，取整到 1%
+  function bodyFatDomain(fats: { bodyFat: number }[]): [number, number] {
+    if (fats.length === 0) return [0, 50];
+    const vals = fats.map(f => f.bodyFat);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const pad = 2;
+    const lower = Math.floor(min - pad);
+    const upper = Math.ceil(max + pad);
+    return [Math.max(0, lower), upper];
+  }
+
+  // 平均值
+  function avg(values: number[]): number {
+    return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+  }
   const caloriePercent = Math.min(
     Math.round((data.today.calories / calorieTarget) * 100),
     100
@@ -331,31 +362,40 @@ export default function DashboardPage() {
 
           {/* 体重趋势 */}
           <div className="bg-white rounded-xl shadow-sm p-4">
-            <h2 className="text-sm font-medium text-gray-500 mb-3">
-              📉 近 7 天体重
-              {data.goal && (
-                <span className="text-gray-400 ml-2">
-                  目标 {data.goal.targetWeight}kg
-                </span>
-              )}
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-gray-500">
+                📉 体重趋势
+                {data.goal && (
+                  <span className="text-gray-400 ml-2">目标 {data.goal.targetWeight}kg</span>
+                )}
+              </h2>
+              <div className="flex gap-1 text-xs">
+                {[7, 30].map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setWeightDays(d)}
+                    className={`px-2 py-1 rounded ${weightDays === d ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                  >
+                    {d}天
+                  </button>
+                ))}
+              </div>
+            </div>
             {data.weights.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={data.weights.slice(-7)}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis domain={["auto", "auto"]} />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="weight"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    name="体重(kg)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={data.weights.slice(-weightDays)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis domain={weightDomain(data.weights.slice(-weightDays))} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="weight" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="体重(kg)" />
+                  </LineChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-gray-400 text-center mt-1">
+                  近 {weightDays} 天平均：{avg(data.weights.slice(-weightDays).map(w => w.weight)).toFixed(1)} kg
+                </p>
+              </>
             ) : (
               <p className="text-gray-400 text-center py-10">
                 暂无体重数据，配置 Apple Health 快捷指令自动同步
@@ -363,28 +403,39 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* 体脂率趋势 🆕 */}
+          {/* 体脂率趋势 */}
           <div className="bg-white rounded-xl shadow-sm p-4">
-            <h2 className="text-sm font-medium text-gray-500 mb-3">
-              📉 近 7 天体脂率
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-gray-500">
+                📉 体脂率趋势
+              </h2>
+              <div className="flex gap-1 text-xs">
+                {[7, 30].map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setBodyFatDays(d)}
+                    className={`px-2 py-1 rounded ${bodyFatDays === d ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                  >
+                    {d}天
+                  </button>
+                ))}
+              </div>
+            </div>
             {data.bodyFats.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={data.bodyFats.slice(-7)}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis domain={["auto", "auto"]} />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="bodyFat"
-                    stroke="#f59e0b"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    name="体脂率(%)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={data.bodyFats.slice(-bodyFatDays)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis domain={bodyFatDomain(data.bodyFats.slice(-bodyFatDays))} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="bodyFat" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} name="体脂率(%)" />
+                  </LineChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-gray-400 text-center mt-1">
+                  近 {bodyFatDays} 天平均：{avg(data.bodyFats.slice(-bodyFatDays).map(f => f.bodyFat)).toFixed(1)}%
+                </p>
+              </>
             ) : (
               <p className="text-gray-400 text-center py-10">
                 暂无体脂率数据，需智能体脂秤支持 Apple Health
