@@ -1,29 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface ActiveEnergyRecord { date: string; kcal: number; source: string; syncTime: string; }
 
 export default function ActivityPage() {
+  const today = new Date().toISOString().split("T")[0];
   const [records, setRecords] = useState<ActiveEnergyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/data?type=active_energy&days=30")
-      .then(r => r.json())
-      .then(d => {
-        setRecords((d.records || []).map((r: any) => ({
-          date: String(r.date || r["日期"] || ""),
-          kcal: parseInt(String(r.calories || r["活动卡路里(kcal)"] || 0)),
-          source: String(r.source || r["数据来源"] || "Apple Health"),
-          syncTime: String(r.syncTime || r["同步时间"] || ""),
-        })));
-        setLoading(false);
-      })
-      .catch(() => { setError("加载失败"); setLoading(false); });
+  // 手动录入表单
+  const [form, setForm] = useState({ date: today, calories: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  const fetchRecords = useCallback(async () => {
+    try {
+      const r = await fetch("/api/data?type=active_energy&days=30");
+      const d = await r.json();
+      setRecords((d.records || []).map((r: any) => ({
+        date: String(r.date || r["日期"] || ""),
+        kcal: parseInt(String(r.calories || r["活动卡路里(kcal)"] || 0)),
+        source: String(r.source || r["数据来源"] || "Apple Health"),
+        syncTime: String(r.syncTime || r["同步时间"] || ""),
+      })));
+    } catch { setError("加载失败"); }
+    finally { setLoading(false); }
   }, []);
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  const handleSubmit = async () => {
+    const kcal = parseInt(form.calories);
+    if (isNaN(kcal) || kcal < 0) { setFeedback({ type: "error", msg: "请输入有效的卡路里数值" }); return; }
+    setSubmitting(true); setFeedback(null);
+    try {
+      const r = await fetch("/api/data", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_active_energy", date: form.date, calories: kcal }),
+      });
+      if (r.ok) {
+        setFeedback({ type: "success", msg: `✅ 已记录 ${kcal} kcal（来源：手动维护）` });
+        setForm(p => ({ ...p, calories: "" }));
+        fetchRecords();
+      } else {
+        const e = await r.json();
+        setFeedback({ type: "error", msg: `❌ ${e.error || "记录失败"}` });
+      }
+    } catch { setFeedback({ type: "error", msg: "❌ 网络错误" }); }
+    finally { setSubmitting(false); setTimeout(() => setFeedback(null), 3000); }
+  };
 
   if (loading) return <div className="flex items-center justify-center min-h-[50vh]"><div className="animate-pulse text-gray-400">加载中...</div></div>;
 
@@ -57,6 +85,36 @@ export default function ActivityPage() {
         </div>
       </div>
 
+      {/* 手动录入表单 */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <h2 className="font-medium mb-4">✏️ 手动维护</h2>
+        <p className="text-xs text-gray-400 mb-4">手动设置后将覆盖当天 Apple Health 同步值，来源标记为「手动维护」</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block text-sm text-gray-500 mb-1">日期</label>
+            <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-500 mb-1">活动卡路里 (kcal)</label>
+            <input type="number" min="0" value={form.calories} onChange={e => setForm(p => ({ ...p, calories: e.target.value }))}
+              placeholder="500" className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div className="flex items-end">
+            <button onClick={handleSubmit} disabled={submitting}
+              className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50">
+              {submitting ? "记录中..." : "💾 手动维护"}
+            </button>
+          </div>
+        </div>
+        {feedback && (
+          <div className={`px-3 py-2 rounded-lg text-sm ${feedback.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+            {feedback.msg}
+          </div>
+        )}
+        <p className="text-xs text-gray-400 mt-3">同日重复维护将覆盖之前的数据。如果在 Apple Health 同步之前设置，后续同步会覆盖此值。</p>
+      </div>
+
       {/* 柱状图 */}
       <div className="bg-white rounded-xl shadow-sm p-4">
         <h2 className="text-sm font-medium text-gray-500 mb-3">近 30 天活动卡路里</h2>
@@ -71,7 +129,7 @@ export default function ActivityPage() {
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-gray-400 text-center py-10">暂无活动卡路里数据，Apple Watch 同步后自动展示</p>
+          <p className="text-gray-400 text-center py-10">暂无活动卡路里数据</p>
         )}
         {avg7 > 0 && <p className="text-xs text-gray-400 mt-2 text-center">7 天平均: {avg7} kcal</p>}
       </div>
@@ -90,7 +148,11 @@ export default function ActivityPage() {
                   <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="py-2">{r.date}</td>
                     <td className="py-2 font-medium">{r.kcal} kcal</td>
-                    <td className="py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{r.source}</span></td>
+                    <td className="py-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${r.source === "手动维护" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"}`}>
+                        {r.source}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -101,7 +163,11 @@ export default function ActivityPage() {
 
       <div className="bg-white rounded-xl shadow-sm p-4">
         <h2 className="text-sm font-medium text-gray-500 mb-3">📋 数据来源</h2>
-        <p className="text-sm text-gray-600">活动卡路里数据来自 Apple Watch 的「活动能量」指标，通过快捷指令每日自动同步。</p>
+        <div className="flex flex-wrap gap-3 text-sm text-gray-600">
+          <span className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-700">🍏 Apple Health 自动同步</span>
+          <span className="text-xs px-3 py-1.5 rounded-full bg-orange-100 text-orange-700">✏️ 手动维护</span>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">活动卡路里默认通过 Apple Watch 快捷指令同步。手动维护的值会直接覆盖同日期数据。</p>
       </div>
     </div>
   );

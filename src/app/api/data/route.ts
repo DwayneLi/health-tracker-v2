@@ -117,6 +117,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, date: sdate, hours: h });
       }
 
+      case "add_active_energy": {
+        const { date: aedate, calories } = body;
+        if (!aedate || calories == null) {
+          return NextResponse.json(
+            { error: "缺少必填字段：date, calories" },
+            { status: 400 }
+          );
+        }
+        const kcal = Number(calories);
+        if (isNaN(kcal) || kcal < 0) {
+          return NextResponse.json(
+            { error: "活动卡路里必须为非负数字" },
+            { status: 400 }
+          );
+        }
+        excel.syncRecord(excel.SHEETS.ACTIVE_ENERGY, aedate, "活动卡路里(kcal)", kcal, "手动维护");
+        return NextResponse.json({ success: true, date: aedate, calories: kcal });
+      }
+
       case "save_goal": {
         const { targetWeight, weeklyPct, dailyCalories } = body;
         const today = new Date().toISOString().split("T")[0];
@@ -150,7 +169,7 @@ export async function POST(req: NextRequest) {
 
       default:
         return NextResponse.json(
-          { error: "未知 action，支持：add_diet, add_strength, add_cardio, add_sleep, save_goal" },
+          { error: "未知 action，支持：add_diet, add_strength, add_cardio, add_sleep, add_active_energy, save_goal" },
           { status: 400 }
         );
     }

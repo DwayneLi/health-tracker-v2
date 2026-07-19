@@ -282,6 +282,11 @@ export function syncRecord(
   } else if (sheetName === SHEETS.ACTIVE_ENERGY) {
     const aeRows = rows as Record<string, unknown>[];
     if (existingIdx >= 0) {
+      // 手动维护优先：如果已有手动维护值，Apple Health 同步不覆盖
+      const prevSource = String(aeRows[existingIdx]["数据来源"] || "");
+      if (prevSource === "手动维护" && source === "Apple Health") {
+        return; // 保留手动维护值
+      }
       aeRows[existingIdx] = {
         日期: date,
         "活动卡路里(kcal)": value,
