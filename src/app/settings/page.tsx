@@ -50,16 +50,8 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-4">
-          <a href="/" className="text-gray-500 hover:text-blue-600">
-            ← 返回
-          </a>
-          <h1 className="text-lg font-bold">⚙️ 设置</h1>
-        </div>
-      </nav>
-
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-lg font-bold">⚙️ 设置</h1>
         {/* Apple Health 同步指南 */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="font-medium mb-4">📲 Apple Health 同步指南</h2>

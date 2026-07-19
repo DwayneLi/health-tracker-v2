@@ -108,37 +108,8 @@ export default function TrendPage() {
 
   return (
     <div className="min-h-screen">
-      {/* 导航 */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold">📊 趋势分析</h1>
-          <div className="flex gap-4 text-sm">
-            <a href="/" className="text-gray-500 hover:text-blue-600">
-              首页
-            </a>
-            <a href="/body" className="text-gray-500 hover:text-blue-600">
-              体重
-            </a>
-            <a href="/diet" className="text-gray-500 hover:text-blue-600">
-              饮食
-            </a>
-            <a href="/training" className="text-gray-500 hover:text-blue-600">
-              训练
-            </a>
-            <a href="/activity" className="text-gray-500 hover:text-blue-600">
-              活动
-            </a>
-            <a href="/trend" className="text-blue-600 font-medium">
-              趋势
-            </a>
-            <a href="/settings" className="text-gray-500 hover:text-blue-600">
-              设置
-            </a>
-          </div>
-        </div>
-      </nav>
-
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-lg font-bold">📊 趋势分析</h1>
         {/* 周期选择器 */}
         <div className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3">
           <span className="text-sm text-gray-500">分析周期:</span>

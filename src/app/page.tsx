@@ -166,6 +166,15 @@ export default function DashboardPage() {
 
   const calorieTarget = data.goal?.dailyCalorieTarget || 2000;
 
+  // goal 永远有默认值（75kg / 0.75% / 1500kcal）
+  const effectiveGoal = data.goal || {
+    targetWeight: 75,
+    weeklyPct: 0.75,
+    currentWeekTarget: 0,
+    dailyCalorieTarget: 1500,
+  };
+  const hasWeights = data.weights.length > 0;
+
   // Y轴：体重 ±2.5kg，取整到 5 的倍数
   function weightDomain(weights: { weight: number }[]): [number, number] {
     if (weights.length === 0) return [0, 100];
@@ -215,36 +224,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      {/* 导航 */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold">📊 健康追踪</h1>
-          <div className="flex gap-4 text-sm">
-            <a href="/" className="text-blue-600 font-medium">
-              首页
-            </a>
-            <a href="/body" className="text-gray-500 hover:text-blue-600">
-              体重
-            </a>
-            <a href="/diet" className="text-gray-500 hover:text-blue-600">
-              饮食
-            </a>
-            <a href="/training" className="text-gray-500 hover:text-blue-600">
-              训练
-            </a>
-            <a href="/activity" className="text-gray-500 hover:text-blue-600">
-              活动
-            </a>
-            <a href="/trend" className="text-gray-500 hover:text-blue-600">
-              趋势
-            </a>
-            <a href="/settings" className="text-gray-500 hover:text-blue-600">
-              设置
-            </a>
-          </div>
-        </div>
-      </nav>
-
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
         {/* 🔄 同步状态面板 */}
         <div className="bg-white rounded-xl shadow-sm p-4">
@@ -361,14 +340,14 @@ export default function DashboardPage() {
           </div>
 
           {/* 减重进度 */}
-          {data.goal && data.weights.length > 0 && (
+          {hasWeights && (
             <div className="bg-white rounded-xl shadow-sm p-4">
               <h2 className="text-sm font-medium text-gray-500 mb-3">🎯 减重进度</h2>
               {(() => {
                 const current = data.weights[data.weights.length - 1].weight;
-                const target = data.goal.targetWeight;
+                const target = effectiveGoal.targetWeight;
                 const remaining = current - target;
-                const expectedWeekly = (current * data.goal.weeklyPct) / 100;
+                const expectedWeekly = (current * effectiveGoal.weeklyPct) / 100;
                 const weekAgo = data.weights.filter(w => {
                   const d = new Date(w.date);
                   const now = new Date();
@@ -417,14 +396,13 @@ export default function DashboardPage() {
           )}
 
           {/* TDEE 与热量缺口 */}
-          {data.goal && (
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <h2 className="text-sm font-medium text-gray-500 mb-3">🔥 热量分析</h2>
-              {(() => {
-                const TDEE = 2200;
-                const targetIntake = data.goal.dailyCalorieTarget;
-                const current = data.weights.length > 0 ? data.weights[data.weights.length - 1].weight : 0;
-                const weeklyPct = data.goal.weeklyPct;
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <h2 className="text-sm font-medium text-gray-500 mb-3">🔥 热量分析</h2>
+            {(() => {
+              const TDEE = 2200;
+              const targetIntake = effectiveGoal.dailyCalorieTarget;
+              const current = data.weights.length > 0 ? data.weights[data.weights.length - 1].weight : 0;
+              const weeklyPct = effectiveGoal.weeklyPct;
                 // 计划缺口：体重 × 周% / 100 × 7700 / 7
                 const plannedDeficit = current > 0 ? Math.round((current * weeklyPct / 100) * 7700 / 7) : 0;
                 // 实际缺口：有饮食记录的7天平均
@@ -487,16 +465,13 @@ export default function DashboardPage() {
                 );
               })()}
             </div>
-          )}
 
           {/* 体重趋势 */}
           <div className="bg-white rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-gray-500">
                 📉 体重趋势
-                {data.goal && (
-                  <span className="text-gray-400 ml-2">目标 {data.goal.targetWeight}kg</span>
-                )}
+                  <span className="text-gray-400 ml-2">目标 {effectiveGoal.targetWeight}kg</span>
               </h2>
               <div className="flex gap-1 text-xs">
                 {[7, 30].map(d => (

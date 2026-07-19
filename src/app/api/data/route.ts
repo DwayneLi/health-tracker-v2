@@ -98,6 +98,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true });
       }
 
+      case "add_sleep": {
+        const { date: sdate, hours, note } = body;
+        if (!sdate || hours == null) {
+          return NextResponse.json(
+            { error: "缺少必填字段：date, hours" },
+            { status: 400 }
+          );
+        }
+        const h = Number(hours);
+        if (isNaN(h) || h <= 0 || h > 24) {
+          return NextResponse.json(
+            { error: "睡眠时长必须在 0.1~24 小时范围内" },
+            { status: 400 }
+          );
+        }
+        excel.upsertSleep(sdate, h, 0, "手动录入", note || "");
+        return NextResponse.json({ success: true, date: sdate, hours: h });
+      }
+
       case "save_goal": {
         const { targetWeight, weeklyPct, dailyCalories } = body;
         const today = new Date().toISOString().split("T")[0];
@@ -131,7 +150,7 @@ export async function POST(req: NextRequest) {
 
       default:
         return NextResponse.json(
-          { error: "未知 action，支持：add_diet, add_strength, add_cardio, save_goal" },
+          { error: "未知 action，支持：add_diet, add_strength, add_cardio, add_sleep, save_goal" },
           { status: 400 }
         );
     }
