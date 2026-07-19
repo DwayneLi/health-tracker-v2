@@ -6,7 +6,7 @@ export default function SettingsPage() {
   const [goal, setGoal] = useState({
     targetWeight: "",
     weeklyPct: "0.5",
-    dailyCalories: "2000",
+    dailyCalories: "1500",
   });
   const [saved, setSaved] = useState(false);
 
@@ -20,22 +20,32 @@ export default function SettingsPage() {
             weeklyPct: String(d.goal["每周减重百分比(%)"] || "0.5"),
             dailyCalories: String(d.goal["每日热量目标(kcal)"] || "2000"),
           });
+        } else {
+          setGoal({ targetWeight: "75", weeklyPct: "0.75", dailyCalories: "1500" });
         }
       })
       .catch(console.error);
   }, []);
 
-  const handleSave = () => {
-    localStorage.setItem(
-      "health-goal",
-      JSON.stringify({
-        targetWeight: parseFloat(goal.targetWeight),
-        weeklyPct: parseFloat(goal.weeklyPct),
-        dailyCalories: parseInt(goal.dailyCalories),
-      })
-    );
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    try {
+      const resp = await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_goal",
+          targetWeight: parseFloat(goal.targetWeight) || 75,
+          weeklyPct: parseFloat(goal.weeklyPct) || 0.75,
+          dailyCalories: parseInt(goal.dailyCalories) || 1500,
+        }),
+      });
+      if (resp.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch (e) {
+      console.error("Save goal failed", e);
+    }
   };
 
   return (
@@ -184,8 +194,9 @@ export default function SettingsPage() {
                   setGoal({ ...goal, targetWeight: e.target.value })
                 }
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="65"
+                placeholder="75"
               />
+              <p className="text-xs text-gray-400 mt-1">当前设置：{goal.targetWeight || "未设定"} kg</p>
             </div>
 
             <div>
@@ -200,10 +211,11 @@ export default function SettingsPage() {
                   setGoal({ ...goal, weeklyPct: e.target.value })
                 }
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="0.5"
+                placeholder="0.75"
               />
               <p className="text-xs text-gray-400 mt-1">
-                建议 0.3-0.7%。体重 70kg 时，0.5% = 每周减 0.35kg
+                建议 0.5-1.0%。体重 75kg 时 0.75% = 每周减 0.56kg
+                （每 kg 脂肪 ≈ 7700 kcal，日均缺口 {Math.round(75 * 0.75 / 100 * 7700 / 7)} kcal）
               </p>
             </div>
 
@@ -218,8 +230,9 @@ export default function SettingsPage() {
                   setGoal({ ...goal, dailyCalories: e.target.value })
                 }
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="2000"
+                placeholder="1500"
               />
+              <p className="text-xs text-gray-400 mt-1">TDEE 参考 2200 kcal · 目标缺口约 700 kcal/天</p>
             </div>
 
             <button

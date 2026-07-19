@@ -98,9 +98,40 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true });
       }
 
+      case "save_goal": {
+        const { targetWeight, weeklyPct, dailyCalories } = body;
+        const today = new Date().toISOString().split("T")[0];
+
+        const weights = excel.readSheet(excel.SHEETS.WEIGHT);
+        const latestWeight =
+          weights.length > 0
+            ? parseFloat(String(weights[weights.length - 1]["体重(kg)"])) || 0
+            : 0;
+
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + 12 * 7);
+        const targetDateStr = targetDate.toISOString().split("T")[0];
+
+        const currentWeekTarget = latestWeight * Number(weeklyPct) / 100;
+
+        excel.saveGoal({
+          设定日期: today,
+          "目标体重(kg)": Number(targetWeight),
+          目标日期: targetDateStr,
+          "起始体重(kg)": latestWeight,
+          "每周减重百分比(%)": Number(weeklyPct),
+          "当前周应减(kg)": Math.round(currentWeekTarget * 100) / 100,
+          "每日热量目标(kcal)": Number(dailyCalories),
+        });
+
+        excel.recalculateWeeklyTarget();
+
+        return NextResponse.json({ success: true });
+      }
+
       default:
         return NextResponse.json(
-          { error: "未知 action，支持：add_diet, add_strength, add_cardio" },
+          { error: "未知 action，支持：add_diet, add_strength, add_cardio, save_goal" },
           { status: 400 }
         );
     }

@@ -807,6 +807,30 @@ export function saveGoal(goal: {
   writeSheet(SHEETS.GOAL, [goal]);
 }
 
+export function recalculateWeeklyTarget(): void {
+  const goal = getGoal();
+  if (!goal) return;
+
+  const weights = readSheet(SHEETS.WEIGHT);
+  const latestWeight =
+    weights.length > 0
+      ? parseFloat(String(weights[weights.length - 1]["体重(kg)"])) || 0
+      : 0;
+
+  const weeklyPct = parseFloat(String(goal["每周减重百分比(%)"])) || 0;
+  const currentWeekTarget = latestWeight * weeklyPct / 100;
+
+  saveGoal({
+    设定日期: String(goal["设定日期"]),
+    "目标体重(kg)": parseFloat(String(goal["目标体重(kg)"])) || 0,
+    目标日期: String(goal["目标日期"]),
+    "起始体重(kg)": latestWeight,
+    "每周减重百分比(%)": weeklyPct,
+    "当前周应减(kg)": Math.round(currentWeekTarget * 100) / 100,
+    "每日热量目标(kcal)": parseFloat(String(goal["每日热量目标(kcal)"])) || 2000,
+  });
+}
+
 // ============================================================
 // 智能建议
 // ============================================================

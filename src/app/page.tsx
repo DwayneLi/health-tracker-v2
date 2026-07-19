@@ -416,6 +416,79 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* TDEE 与热量缺口 */}
+          {data.goal && (
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <h2 className="text-sm font-medium text-gray-500 mb-3">🔥 热量分析</h2>
+              {(() => {
+                const TDEE = 2200;
+                const targetIntake = data.goal.dailyCalorieTarget;
+                const current = data.weights.length > 0 ? data.weights[data.weights.length - 1].weight : 0;
+                const weeklyPct = data.goal.weeklyPct;
+                // 计划缺口：体重 × 周% / 100 × 7700 / 7
+                const plannedDeficit = current > 0 ? Math.round((current * weeklyPct / 100) * 7700 / 7) : 0;
+                // 实际缺口：有饮食记录的7天平均
+                const today = new Date().toISOString().split("T")[0];
+                const recentDays: string[] = [];
+                for (let i = 0; i < 7; i++) {
+                  const d = new Date();
+                  d.setDate(d.getDate() - i);
+                  recentDays.push(d.toISOString().split("T")[0]);
+                }
+                const recentDiet = data.dietSummary.filter((ds: any) =>
+                  recentDays.includes(String(ds["日期"]))
+                );
+                const daysWithDiet = recentDiet.filter((ds: any) => parseFloat(String(ds["总热量"])) > 0);
+                const avgIntake = daysWithDiet.length > 0
+                  ? Math.round(daysWithDiet.reduce((s: number, ds: any) => s + parseFloat(String(ds["总热量"])), 0) / daysWithDiet.length)
+                  : null;
+                const actualDeficit = avgIntake ? TDEE - avgIntake : null;
+                const expectedLoss = actualDeficit ? ((actualDeficit * 7) / 7700).toFixed(1) : null;
+
+                return (
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center text-sm">
+                    <div className="p-2 bg-gray-50 rounded">
+                      <p className="text-gray-400 text-xs">TDEE</p>
+                      <p className="font-bold">{TDEE} kcal</p>
+                    </div>
+                    <div className="p-2 bg-gray-50 rounded">
+                      <p className="text-gray-400 text-xs">目标摄入</p>
+                      <p className="font-bold">{targetIntake} kcal</p>
+                    </div>
+                    <div className="p-2 bg-gray-50 rounded">
+                      <p className="text-gray-400 text-xs">计划缺口</p>
+                      <p className="font-bold text-blue-600">-{plannedDeficit} kcal/天</p>
+                      <p className="text-xs text-gray-400">对应 ↓{(plannedDeficit * 7 / 7700).toFixed(2)}kg/周</p>
+                    </div>
+                    <div className="p-2 bg-gray-50 rounded">
+                      <p className="text-gray-400 text-xs">7天实际缺口</p>
+                      {actualDeficit ? (
+                        <>
+                          <p className={`font-bold ${actualDeficit > 0 ? "text-green-600" : "text-red-600"}`}>
+                            {actualDeficit > 0 ? "-" : "+"}{Math.abs(actualDeficit)} kcal/天
+                          </p>
+                          <p className="text-xs text-gray-400">预期 {actualDeficit > 0 ? "↓" : "↑"}{expectedLoss}kg/周</p>
+                        </>
+                      ) : (
+                        <p className="text-gray-400">暂无饮食数据</p>
+                      )}
+                    </div>
+                    <div className="p-2 bg-gray-50 rounded">
+                      <p className="text-gray-400 text-xs">计划vs实际</p>
+                      {actualDeficit ? (
+                        <p className={`font-bold ${Math.abs(actualDeficit - plannedDeficit) < 100 ? "text-green-600" : "text-orange-500"}`}>
+                          {actualDeficit >= plannedDeficit ? "✅ 达标" : `差${Math.round(plannedDeficit - actualDeficit)}kcal`}
+                        </p>
+                      ) : (
+                        <p className="text-gray-400">—</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* 体重趋势 */}
           <div className="bg-white rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
