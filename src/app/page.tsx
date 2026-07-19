@@ -360,6 +360,62 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
+          {/* 减重进度 */}
+          {data.goal && data.weights.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <h2 className="text-sm font-medium text-gray-500 mb-3">🎯 减重进度</h2>
+              {(() => {
+                const current = data.weights[data.weights.length - 1].weight;
+                const target = data.goal.targetWeight;
+                const remaining = current - target;
+                const expectedWeekly = (current * data.goal.weeklyPct) / 100;
+                const weekAgo = data.weights.filter(w => {
+                  const d = new Date(w.date);
+                  const now = new Date();
+                  return (now.getTime() - d.getTime()) / 86400000 <= 7;
+                });
+                const actualWeekly = weekAgo.length >= 2
+                  ? weekAgo[0].weight - weekAgo[weekAgo.length - 1].weight
+                  : 0;
+                const onTrack = actualWeekly >= expectedWeekly * 0.7;
+                const totalLost = data.weights[0].weight - current;
+                const pctDone = data.weights[0].weight > target
+                  ? Math.min(100, Math.round((totalLost / (data.weights[0].weight - target)) * 100))
+                  : 0;
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span>当前 <b className="text-blue-600">{current}kg</b></span>
+                      <span className="text-gray-400">→</span>
+                      <span>目标 <b className="text-gray-600">{target}kg</b></span>
+                      <span className="text-gray-400">|</span>
+                      <span>还需减 <b className={remaining > 0 ? "text-orange-500" : "text-green-500"}>
+                        {remaining > 0 ? `${remaining.toFixed(1)}kg` : "已达成！"}
+                      </b></span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className="bg-blue-500 h-3 rounded-full transition-all"
+                        style={{ width: `${Math.min(pctDone, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>总进度 {pctDone}%（已减 {totalLost.toFixed(1)}kg）</span>
+                      <span>
+                        周目标 ↓{expectedWeekly.toFixed(1)}kg · 实际 
+                        <span className={onTrack ? "text-green-500" : "text-red-500"}>
+                          {actualWeekly > 0 ? "↑" : "↓"}{Math.abs(actualWeekly).toFixed(1)}kg
+                          {onTrack ? " ✅" : " ⚠️"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* 体重趋势 */}
           <div className="bg-white rounded-xl shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
