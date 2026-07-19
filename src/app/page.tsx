@@ -164,8 +164,6 @@ export default function DashboardPage() {
     );
   }
 
-  const calorieTarget = data.goal?.dailyCalorieTarget || 2000;
-
   // goal 永远有默认值（75kg / 0.75% / 1500kcal）
   const effectiveGoal = data.goal || {
     targetWeight: 75,
@@ -174,6 +172,7 @@ export default function DashboardPage() {
     dailyCalorieTarget: 1500,
   };
   const hasWeights = data.weights.length > 0;
+  const calorieTarget = effectiveGoal.dailyCalorieTarget;
 
   // Y轴：体重 ±2.5kg，取整到 5 的倍数
   function weightDomain(weights: { weight: number }[]): [number, number] {
@@ -294,51 +293,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 图表区域 */}
+        {/* 减重进度 + 热量分析 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 热量环形图 */}
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <h2 className="text-sm font-medium text-gray-500 mb-3">
-              今日热量
-            </h2>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  dataKey="value"
-                >
-                  <Cell fill="#3b82f6" />
-                  <Cell fill="#e5e7eb" />
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <p className="text-center text-sm text-gray-400">
-              {caloriePercent}% · 剩余 {calorieTarget - data.today.calories}{" "}
-              kcal
-            </p>
-          </div>
-
-          {/* 宏量营养素 */}
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <h2 className="text-sm font-medium text-gray-500 mb-3">
-              今日宏量营养素
-            </h2>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={macroData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
           {/* 减重进度 */}
           {hasWeights && (
             <div className="bg-white rounded-xl shadow-sm p-4">
@@ -401,12 +357,10 @@ export default function DashboardPage() {
             {(() => {
               const TDEE = 2200;
               const targetIntake = effectiveGoal.dailyCalorieTarget;
-              const current = data.weights.length > 0 ? data.weights[data.weights.length - 1].weight : 0;
+              const current2 = data.weights.length > 0 ? data.weights[data.weights.length - 1].weight : 0;
               const weeklyPct = effectiveGoal.weeklyPct;
-                // 计划缺口：体重 × 周% / 100 × 7700 / 7
-                const plannedDeficit = current > 0 ? Math.round((current * weeklyPct / 100) * 7700 / 7) : 0;
-                // 实际缺口：有饮食记录的7天平均
-                const today = new Date().toISOString().split("T")[0];
+                const plannedDeficit = current2 > 0 ? Math.round((current2 * weeklyPct / 100) * 7700 / 7) : 0;
+                const today2 = new Date().toISOString().split("T")[0];
                 const recentDays: string[] = [];
                 for (let i = 0; i < 7; i++) {
                   const d = new Date();
@@ -465,6 +419,52 @@ export default function DashboardPage() {
                 );
               })()}
             </div>
+        </div>
+
+        {/* 图表区域 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 热量环形图 */}
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <h2 className="text-sm font-medium text-gray-500 mb-3">
+              今日热量
+            </h2>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  dataKey="value"
+                >
+                  <Cell fill="#3b82f6" />
+                  <Cell fill="#e5e7eb" />
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <p className="text-center text-sm text-gray-400">
+              {caloriePercent}% · 剩余 {calorieTarget - data.today.calories}{" "}
+              kcal
+            </p>
+          </div>
+
+          {/* 宏量营养素 */}
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <h2 className="text-sm font-medium text-gray-500 mb-3">
+              今日宏量营养素
+            </h2>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={macroData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#3b82f6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
           {/* 体重趋势 */}
           <div className="bg-white rounded-xl shadow-sm p-4">
