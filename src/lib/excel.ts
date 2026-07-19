@@ -137,14 +137,29 @@ export function ensureFile(): void {
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     fs.writeFileSync(filePath, buf);
   } else {
-    // 增量补齐 v2 新增的 Sheet（兼容 v1 升级）
+    // 增量补齐 v2 新增的 Sheet / 列（兼容 v1 升级）
     const wb = readWorkbookRaw();
     let changed = false;
     for (const [name, headers] of Object.entries(HEADERS)) {
       if (!wb.Sheets[name]) {
+        // 全新 Sheet
         const ws = XLSX.utils.aoa_to_sheet([headers]);
         XLSX.utils.book_append_sheet(wb, ws, name);
         changed = true;
+      } else {
+        // 已有 Sheet：检查是否缺少列
+        const sheetData = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[name], { header: 1, defval: "" });
+        const existingHeaders = sheetData.length > 0 ? sheetData[0] : [];
+        const missing = headers.filter(h => !existingHeaders.includes(h));
+        if (missing.length > 0) {
+          // 在每行末尾追加缺失列的空值
+          const newData = sheetData.map((row, i) =>
+            i === 0 ? [...row, ...missing] : [...row, ...missing.map(() => "")]
+          );
+          const newWs = XLSX.utils.aoa_to_sheet(newData);
+          wb.Sheets[name] = newWs;
+          changed = true;
+        }
       }
     }
     if (changed) {
@@ -301,37 +316,42 @@ export function syncRecord(
 /** 获取各数据源的同步状态 */
 export function getSyncStatus(): Record<
   string,
-  { lastSync: string | null; status: "ok" | "warning" | "error" | "none" }
+  { last_sync: string | null; status: "ok" | "warning" | "error" | "none"; latest_value: number | null }
 > {
   const now = Date.now();
   const H24 = 24 * 60 * 60 * 1000;
   const H48 = 48 * 60 * 60 * 1000;
 
-  function statusOf(sheetName: string): {
-    lastSync: string | null;
+  function statusOf(
+    sheetName: string,
+    valueField: string
+  ): {
+    last_sync: string | null;
     status: "ok" | "warning" | "error" | "none";
+    latest_value: number | null;
   } {
     const rows = readSheet(sheetName);
-    if (rows.length === 0) return { lastSync: null, status: "none" };
+    if (rows.length === 0) return { last_sync: null, status: "none", latest_value: null };
 
     const lastRow = rows[rows.length - 1];
+    const latest_value = parseFloat(String(lastRow[valueField] || "")) || null;
     const syncTime =
       (lastRow["同步时间"] as string) ||
       (lastRow["记录时间"] as string) ||
       "";
-    if (!syncTime) return { lastSync: null, status: "none" };
+    if (!syncTime) return { last_sync: null, status: "none", latest_value };
 
     const elapsed = now - new Date(syncTime).getTime();
-    if (elapsed < H24) return { lastSync: syncTime, status: "ok" };
-    if (elapsed < H48) return { lastSync: syncTime, status: "warning" };
-    return { lastSync: syncTime, status: "error" };
+    if (elapsed < H24) return { last_sync: syncTime, status: "ok", latest_value };
+    if (elapsed < H48) return { last_sync: syncTime, status: "warning", latest_value };
+    return { last_sync: syncTime, status: "error", latest_value };
   }
 
   return {
-    weight: statusOf(SHEETS.WEIGHT),
-    body_fat: statusOf(SHEETS.BODY_FAT),
-    sleep: statusOf(SHEETS.SLEEP),
-    active_energy: statusOf(SHEETS.ACTIVE_ENERGY),
+    weight: statusOf(SHEETS.WEIGHT, "体重(kg)"),
+    body_fat: statusOf(SHEETS.BODY_FAT, "体脂率(%)"),
+    sleep: statusOf(SHEETS.SLEEP, "睡眠时长(小时)"),
+    active_energy: statusOf(SHEETS.ACTIVE_ENERGY, "活动卡路里(kcal)"),
   };
 }
 
