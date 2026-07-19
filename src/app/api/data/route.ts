@@ -304,9 +304,9 @@ export async function GET(req: NextRequest) {
             date: String(r["日期"]),
             hours: parseFloat(String(r["睡眠时长(小时)"])) || 0,
           })),
-          activeEnergy: activeEnergy.slice(-30).map((r) => ({
+          activeEnergies: activeEnergy.slice(-30).map((r) => ({
             date: String(r["日期"]),
-            calories: parseFloat(String(r["活动卡路里(kcal)"])) || 0,
+            kcal: parseFloat(String(r["活动卡路里(kcal)"])) || 0,
           })),
           goal: goal
             ? {

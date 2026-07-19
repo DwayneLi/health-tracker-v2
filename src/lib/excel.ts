@@ -257,13 +257,12 @@ export function syncRecord(
   const syncTime = new Date().toISOString();
 
   if (sheetName === SHEETS.SLEEP) {
-    // 睡眠：同一天多次同步累积（Apple Watch 分阶段记录）
+    // 睡眠：UPSERT（覆盖）模式 — Shortcut 端已汇总所有片段，服务端直接存储
     const sleepRows = rows as Record<string, unknown>[];
     if (existingIdx >= 0) {
-      const prevHours = parseFloat(String(sleepRows[existingIdx]["睡眠时长(小时)"])) || 0;
       sleepRows[existingIdx] = {
         日期: date,
-        "睡眠时长(小时)": Math.round((prevHours + value) * 10) / 10,
+        "睡眠时长(小时)": value,
         "卧床时长(小时)": sleepRows[existingIdx]["卧床时长(小时)"] || 0,
         数据来源: source,
         备注: sleepRows[existingIdx]["备注"] || "",
