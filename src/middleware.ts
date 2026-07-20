@@ -36,7 +36,8 @@ export function middleware(req: NextRequest) {
     host.startsWith("172.28.") ||
     host.startsWith("172.29.") ||
     host.startsWith("172.30.") ||
-    host.startsWith("172.31.")
+    host.startsWith("172.31.") ||
+    host.startsWith("100.") // Tailscale 虚拟网络
   ) {
     return NextResponse.next();
   }
