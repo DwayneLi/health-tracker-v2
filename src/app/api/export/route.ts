@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import * as excel from "@/lib/excel";
+import { getTodayStr } from "@/lib/date";
 
 export async function GET() {
   try {
     const buffer = excel.exportWorkbook();
-    const date = new Date().toISOString().split("T")[0];
+    const date = getTodayStr();
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {

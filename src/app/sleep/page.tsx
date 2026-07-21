@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { getTodayStr } from "@/lib/date";
 
 interface SleepRecord {
   date: string;
@@ -10,7 +11,7 @@ interface SleepRecord {
 }
 
 export default function SleepPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayStr();
   const [records, setRecords] = useState<SleepRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ date: today, hours: "7.5", note: "" });

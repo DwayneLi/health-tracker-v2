@@ -15,6 +15,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { getTodayStr, formatDateBeijing } from "@/lib/date";
 
 interface TrendFlag {
   level: string;
@@ -360,12 +361,11 @@ export default function DashboardPage() {
               const current2 = data.weights.length > 0 ? data.weights[data.weights.length - 1].weight : 0;
               const weeklyPct = effectiveGoal.weeklyPct;
                 const plannedDeficit = current2 > 0 ? Math.round((current2 * weeklyPct / 100) * 7700 / 7) : 0;
-                const today2 = new Date().toISOString().split("T")[0];
                 const recentDays: string[] = [];
                 for (let i = 0; i < 7; i++) {
                   const d = new Date();
                   d.setDate(d.getDate() - i);
-                  recentDays.push(d.toISOString().split("T")[0]);
+                  recentDays.push(formatDateBeijing(d));
                 }
                 const recentDiet = data.dietSummary.filter((ds: any) =>
                   recentDays.includes(String(ds["日期"]))

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import { getTodayStr } from "@/lib/date";
 
 interface WeightRecord { date: string; weight: number; source: string; syncTime: string; note: string; }
 interface BodyFatRecord { date: string; bodyFat: number; source: string; syncTime: string; note: string; }
@@ -37,7 +38,7 @@ export default function BodyPage() {
   const handleSubmit = async () => {
     if (!formWeight && !formBodyFat) { setSubmitMsg("请至少填写体重或体脂率"); return; }
     setSubmitting(true); setSubmitMsg(null);
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayStr();
     const records = [];
     if (formWeight && !isNaN(Number(formWeight))) records.push({ type: "weight", value: Number(formWeight), unit: "kg", date: today, source: "手动录入" });
     if (formBodyFat && !isNaN(Number(formBodyFat))) records.push({ type: "body_fat", value: Number(formBodyFat), unit: "%", date: today, source: "手动录入" });

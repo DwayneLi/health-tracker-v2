@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { getTodayStr } from "@/lib/date";
 
 interface TrainingRecord {
   日期: string;
@@ -11,7 +12,7 @@ interface TrainingRecord {
 }
 
 export default function TrainingPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayStr();
   const [tab, setTab] = useState<"strength" | "cardio">("strength");
   const [form, setForm] = useState({ date: today, calories: "", rpe: "", note: "" });
   const [submitting, setSubmitting] = useState(false);

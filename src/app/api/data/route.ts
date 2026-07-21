@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import * as excel from "@/lib/excel";
+import { getTodayStr, getNowStr, formatDateBeijing } from "@/lib/date";
 
 // ============================================================
 // POST: 写入操作（饮食 / 训练）
@@ -34,8 +35,8 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
-        const now = new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
-        const entryDate = date || new Date().toISOString().split("T")[0];
+        const now = getNowStr();
+        const entryDate = date || getTodayStr();
         excel.addDietRecord({
           日期: entryDate,
           记录时间: now,
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
           );
         }
         excel.addStrengthTraining({
-          日期: date || new Date().toISOString().split("T")[0],
+          日期: date || getTodayStr(),
           训练类型: "力量训练",
           "卡路里(kcal)": Number(calories),
           "疲劳度(RPE)": Number(rpe),
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
           );
         }
         excel.addCardioTraining({
-          日期: date || new Date().toISOString().split("T")[0],
+          日期: date || getTodayStr(),
           训练类型: "有氧训练",
           "卡路里(kcal)": Number(calories),
           "疲劳度(RPE)": Number(rpe),
@@ -138,7 +139,7 @@ export async function POST(req: NextRequest) {
 
       case "save_goal": {
         const { targetWeight, weeklyPct, dailyCalories } = body;
-        const today = new Date().toISOString().split("T")[0];
+        const today = getTodayStr();
 
         const weights = excel.readSheet(excel.SHEETS.WEIGHT);
         const latestWeight =
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest) {
 
         const targetDate = new Date();
         targetDate.setDate(targetDate.getDate() + 12 * 7);
-        const targetDateStr = targetDate.toISOString().split("T")[0];
+        const targetDateStr = formatDateBeijing(targetDate);
 
         const currentWeekTarget = latestWeight * Number(weeklyPct) / 100;
 
@@ -302,7 +303,7 @@ export async function GET(req: NextRequest) {
         const sleeps = excel.readSheet(excel.SHEETS.SLEEP);
         const activeEnergy = excel.readSheet(excel.SHEETS.ACTIVE_ENERGY);
         const goal = excel.getGoal();
-        const today = new Date().toISOString().split("T")[0];
+        const today = getTodayStr();
         const syncStatus = excel.getSyncStatus();
 
         const todaySummary = dietSummary.find(

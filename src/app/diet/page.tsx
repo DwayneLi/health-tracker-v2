@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { getTodayStr } from "@/lib/date";
 
 interface DietRecord {
   日期: string;
@@ -14,7 +15,7 @@ interface DietRecord {
 }
 
 export default function DietPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayStr();
   const hour = new Date().getHours();
   const defaultMeal =
     hour >= 5 && hour < 10 ? "早餐"

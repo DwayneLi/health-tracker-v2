@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { getTodayStr } from "@/lib/date";
 
 interface ActiveEnergyRecord { date: string; kcal: number; source: string; syncTime: string; }
 
 export default function ActivityPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayStr();
   const [records, setRecords] = useState<ActiveEnergyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -11,6 +11,7 @@
 import * as XLSX from "xlsx";
 import * as fs from "fs";
 import * as path from "path";
+import { formatDateBeijing } from "./date";
 
 // ============================================================
 // 配置
@@ -431,8 +432,8 @@ export function getTrendData(days: number = 7): TrendData {
 
   const end = new Date();
   const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
-  const startStr = start.toISOString().split("T")[0];
-  const endStr = end.toISOString().split("T")[0];
+  const startStr = formatDateBeijing(start);
+  const endStr = formatDateBeijing(end);
 
   // 过滤日期范围
   function filterByDate(
