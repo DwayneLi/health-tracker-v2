@@ -261,7 +261,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
           records: data.slice(-days).map((r) => ({
             date: String(r["日期"]),
-            calories: parseFloat(String(r["活动卡路里(kcal)"])) || 0,
+            calories: Math.round(parseFloat(String(r["活动卡路里(kcal)"])) || 0),
             source: String(r["数据来源"] || ""),
             syncTime: String(r["同步时间"] || ""),
           })),
@@ -345,7 +345,7 @@ export async function GET(req: NextRequest) {
           })),
           activeEnergies: activeEnergy.slice(-30).map((r) => ({
             date: String(r["日期"]),
-            kcal: parseFloat(String(r["活动卡路里(kcal)"])) || 0,
+            kcal: Math.round(parseFloat(String(r["活动卡路里(kcal)"])) || 0),
           })),
           goal: goal
             ? {

@@ -23,7 +23,7 @@ export default function ActivityPage() {
       const d = await r.json();
       setRecords((d.records || []).map((r: any) => ({
         date: String(r.date || r["日期"] || ""),
-        kcal: parseInt(String(r.calories || r["活动卡路里(kcal)"] || 0)),
+        kcal: Math.round(parseFloat(String(r.calories || r["活动卡路里(kcal)"] || 0))),
         source: String(r.source || r["数据来源"] || "Apple Health"),
         syncTime: String(r.syncTime || r["同步时间"] || ""),
       })));
