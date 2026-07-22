@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getTodayStr } from "@/lib/date";
 
 interface DietRecord {
@@ -31,6 +31,7 @@ export default function DietPage() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [records, setRecords] = useState<DietRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const formCardRef = useRef<HTMLDivElement>(null);
 
   const fetchRecords = useCallback(async () => {
     try {
@@ -83,11 +84,20 @@ export default function DietPage() {
 
   const recent10 = records;
 
+  const handleCopy = (r: DietRecord) => {
+    setForm({
+      date: r.日期, mealType: r.餐次, foodDesc: r.食物描述,
+      calories: String(r.热量), protein: String(r.蛋白质),
+      carbs: String(r.碳水), fat: String(r.脂肪), note: "",
+    });
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-lg font-bold">🍽️ 饮食录入</h1>
 
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="bg-white rounded-xl shadow-sm p-6" ref={formCardRef}>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm text-gray-500 mb-1">日期</label>
@@ -168,6 +178,7 @@ export default function DietPage() {
                   <th className="pb-2 font-medium">蛋白质</th>
                   <th className="pb-2 font-medium">碳水</th>
                   <th className="pb-2 font-medium">脂肪</th>
+                  <th className="pb-2 font-medium w-16">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -180,6 +191,13 @@ export default function DietPage() {
                     <td className="py-2">{r.蛋白质}g</td>
                     <td className="py-2">{r.碳水}g</td>
                     <td className="py-2">{r.脂肪}g</td>
+                    <td className="py-2">
+                      <button onClick={() => handleCopy(r)}
+                        className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-blue-100 hover:text-blue-600 text-gray-500 transition-colors"
+                        title="复制到表单">
+                        📋 复制
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
