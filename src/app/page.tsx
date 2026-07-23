@@ -281,6 +281,11 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl shadow-sm p-4">
             <p className="text-sm text-gray-500">蛋白质</p>
             <p className="text-2xl font-bold">{data.today.protein}g</p>
+            {data.weights.length > 0 && data.today.protein > 0 && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {(data.today.protein / data.weights[data.weights.length - 1].weight).toFixed(1)} g/kg
+              </p>
+            )}
           </div>
 
           <div className="bg-white rounded-xl shadow-sm p-4">

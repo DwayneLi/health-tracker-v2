@@ -85,11 +85,12 @@ export default function DietPage() {
   const recent10 = records;
 
   const handleCopy = (r: DietRecord) => {
-    setForm({
-      date: r.日期, mealType: r.餐次, foodDesc: r.食物描述,
+    setForm(p => ({
+      ...p,  // 保留当前表单的日期、餐次
+      foodDesc: r.食物描述,
       calories: String(r.热量), protein: String(r.蛋白质),
       carbs: String(r.碳水), fat: String(r.脂肪), note: "",
-    });
+    }));
     formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
