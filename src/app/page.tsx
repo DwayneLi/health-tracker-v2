@@ -479,7 +479,7 @@ export default function DashboardPage() {
                   <span className="text-gray-400 ml-2">目标 {effectiveGoal.targetWeight}kg</span>
               </h2>
               <div className="flex gap-1 text-xs">
-                {[7, 30].map(d => (
+                {[7, 14, 30].map(d => (
                   <button
                     key={d}
                     onClick={() => setWeightDays(d)}
@@ -503,6 +503,18 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
                 <p className="text-xs text-gray-400 text-center mt-1">
                   近 {weightDays} 天平均：{avg(data.weights.slice(-weightDays).map(w => w.weight)).toFixed(1)} kg
+                  {(() => {
+                    const slice = data.weights.slice(-weightDays);
+                    if (slice.length >= 2) {
+                      const diff = slice[slice.length - 1].weight - slice[0].weight;
+                      return (
+                        <span className={diff < 0 ? "text-green-500 ml-2" : "text-red-500 ml-2"}>
+                          {diff < 0 ? "↓" : "↑"}{Math.abs(diff).toFixed(1)}kg
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </p>
               </>
             ) : (
@@ -519,7 +531,7 @@ export default function DashboardPage() {
                 📉 体脂率趋势
               </h2>
               <div className="flex gap-1 text-xs">
-                {[7, 30].map(d => (
+                {[7, 14, 30].map(d => (
                   <button
                     key={d}
                     onClick={() => setBodyFatDays(d)}
@@ -543,6 +555,18 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
                 <p className="text-xs text-gray-400 text-center mt-1">
                   近 {bodyFatDays} 天平均：{avg(data.bodyFats.slice(-bodyFatDays).map(f => f.bodyFat)).toFixed(1)}%
+                  {(() => {
+                    const slice = data.bodyFats.slice(-bodyFatDays);
+                    if (slice.length >= 2) {
+                      const diff = slice[slice.length - 1].bodyFat - slice[0].bodyFat;
+                      return (
+                        <span className={diff < 0 ? "text-green-500 ml-2" : "text-red-500 ml-2"}>
+                          {diff < 0 ? "↓" : "↑"}{Math.abs(diff).toFixed(1)}%
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </p>
               </>
             ) : (
