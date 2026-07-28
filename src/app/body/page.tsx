@@ -9,11 +9,13 @@ import { getTodayStr } from "@/lib/date";
 interface WeightRecord { date: string; weight: number; source: string; syncTime: string; note: string; }
 interface BodyFatRecord { date: string; bodyFat: number; source: string; syncTime: string; note: string; }
 interface Goal { targetWeight: number; weeklyPct: number; currentWeekTarget: number; dailyCalorieTarget: number; }
+interface DeficitPoint { date: string; plannedDeficit: number; actualDeficit: number; }
 
 export default function BodyPage() {
   const [weights, setWeights] = useState<WeightRecord[]>([]);
   const [bodyFats, setBodyFats] = useState<BodyFatRecord[]>([]);
   const [goal, setGoal] = useState<Goal | null>(null);
+  const [dietSummaries, setDietSummaries] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formWeight, setFormWeight] = useState("");
@@ -24,11 +26,16 @@ export default function BodyPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const r = await fetch("/api/data?type=weight&days=30");
-      const d = await r.json();
+      const [weightRes, dietRes] = await Promise.all([
+        fetch("/api/data?type=weight&days=30"),
+        fetch("/api/data?type=diet&days=30"),
+      ]);
+      const d = await weightRes.json();
+      const diet = await dietRes.json();
       setWeights(d.weights || []);
       setBodyFats(d.bodyFats || []);
       setGoal(d.goal);
+      setDietSummaries(diet.summaries || []);
     } catch { setError("加载失败"); }
     finally { setLoading(false); }
   }, []);
@@ -64,6 +71,28 @@ export default function BodyPage() {
   const hasData = weights.length > 0 || bodyFats.length > 0;
   const recentWeights = weights.slice(-10).reverse();
   const recentFats = bodyFats.slice(-10).reverse();
+
+  // 热量缺口趋势（最近 10 天有饮食数据的天）
+  const TDEE = 2200;
+  const weeklyPct = goal?.weeklyPct || 0.75;
+  const deficitData: DeficitPoint[] = dietSummaries
+    .slice(-10)
+    .map(ds => {
+      const date = String(ds["日期"]);
+      const calories = parseInt(String(ds["总热量"])) || 0;
+      const w = weights.find(wr => wr.date === date);
+      const plannedDeficit = w
+        ? Math.round((w.weight * weeklyPct / 100) * 7700 / 7)
+        : 0;
+      const actualDeficit = calories > 0 ? TDEE - calories : 0;
+      const surp = calories > 0 && actualDeficit < 0;
+      return {
+        date: date.slice(5),
+        plannedDeficit: plannedDeficit > 0 ? plannedDeficit : 0,
+        actualDeficit: surp ? actualDeficit : Math.max(actualDeficit, 0),
+      };
+    })
+    .filter(d => d.plannedDeficit > 0 || d.actualDeficit !== 0);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
@@ -122,6 +151,65 @@ export default function BodyPage() {
         </>
       )}
 
+      {/* 热量缺口趋势 */}
+      {deficitData.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <h2 className="text-sm font-medium text-gray-500 mb-3">📊 热量缺口趋势（最近 10 天）</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-xs text-gray-500">
+            <div className="bg-gray-50 rounded px-2 py-1">
+              <span>TDEE</span>
+              <span className="float-right font-medium text-gray-700">{TDEE} kcal</span>
+            </div>
+            <div className="bg-gray-50 rounded px-2 py-1">
+              <span>目标热量</span>
+              <span className="float-right font-medium text-gray-700">{goal?.dailyCalorieTarget || "--"} kcal</span>
+            </div>
+            <div className="bg-gray-50 rounded px-2 py-1">
+              <span>计划缺口</span>
+              <span className="float-right font-medium text-blue-600">
+                -{deficitData.length > 0 ? deficitData[deficitData.length - 1].plannedDeficit : 0} kcal
+              </span>
+            </div>
+            <div className="bg-gray-50 rounded px-2 py-1">
+              <span>近 10 天实际缺口</span>
+              <span className={`float-right font-medium ${(() => {
+                const last10 = deficitData.slice(-7).filter(d => d.actualDeficit !== 0);
+                const avg = last10.length > 0 ? Math.round(last10.reduce((s, d) => s + d.actualDeficit, 0) / last10.length) : null;
+                return avg !== null && avg > 0 ? "text-green-600" : "text-orange-500";
+              })()}`}>
+                {(() => {
+                  const last10 = deficitData.slice(-7).filter(d => d.actualDeficit !== 0);
+                  const avg = last10.length > 0 ? Math.round(last10.reduce((s, d) => s + d.actualDeficit, 0) / last10.length) : null;
+                  return avg !== null ? (avg > 0 ? `-${avg} kcal` : `+${Math.abs(avg)} kcal`) : "--";
+                })()}
+              </span>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <LineChart data={deficitData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                domain={(() => {
+                  const vals = deficitData.flatMap(d => [d.plannedDeficit, d.actualDeficit]);
+                  const min = Math.min(...vals, 0);
+                  const max = Math.max(...vals, 100);
+                  return [Math.min(min - 50, -50), Math.ceil((max + 100) / 100) * 100];
+                })()}
+              />
+              <Tooltip formatter={(v) => [`${v} kcal`, ""]} />
+              <Legend />
+              <Line type="monotone" dataKey="plannedDeficit" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} name="计划缺口 (kcal)" />
+              <Line type="monotone" dataKey="actualDeficit" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} name="实际缺口 (kcal)" />
+            </LineChart>
+          </ResponsiveContainer>
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            计划缺口 = 当前体重 × 每周减重% × 7700 ÷ 7 · 实际缺口 = TDEE({TDEE}) − 实际摄入
+          </p>
+        </div>
+      )}
+
       {/* 手动录入表单 */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h2 className="font-medium mb-4">✏️ 手动录入（兜底）</h2>
@@ -152,24 +240,28 @@ export default function BodyPage() {
         <p className="text-xs text-gray-400 mt-3">同日重复录入将覆盖之前的数据。</p>
       </div>
 
-      {/* 最近 10 条体重 */}
+      {/* 最近 10 条体重 + 体脂率 */}
       {recentWeights.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm p-4">
-          <h2 className="text-sm font-medium text-gray-500 mb-3">📋 最近体重记录</h2>
+          <h2 className="text-sm font-medium text-gray-500 mb-3">📋 最近体重 & 体脂记录</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-gray-400 border-b">
-                <th className="pb-2 font-medium">日期</th><th className="pb-2 font-medium">体重</th><th className="pb-2 font-medium">来源</th><th className="pb-2 font-medium">备注</th>
+                <th className="pb-2 font-medium">日期</th><th className="pb-2 font-medium">体重</th><th className="pb-2 font-medium">体脂率</th><th className="pb-2 font-medium">来源</th><th className="pb-2 font-medium">备注</th>
               </tr></thead>
               <tbody>
-                {recentWeights.map((r, i) => (
+                {recentWeights.map((r, i) => {
+                  const fat = bodyFats.find(f => f.date === r.date);
+                  return (
                   <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="py-2">{r.date}</td>
                     <td className="py-2 font-medium">{r.weight} kg</td>
+                    <td className="py-2">{fat ? `${fat.bodyFat}%` : <span className="text-gray-300">—</span>}</td>
                     <td className="py-2"><span className={`text-xs px-2 py-0.5 rounded-full ${r.source === "Apple Health" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{r.source || "手动"}</span></td>
                     <td className="py-2 text-gray-400">{r.note}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
