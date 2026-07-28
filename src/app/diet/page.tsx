@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getTodayStr } from "@/lib/date";
+import { parseNutrition } from "@/lib/nutrition-parser";
 
 interface DietRecord {
   日期: string;
@@ -29,6 +30,9 @@ export default function DietPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [aiText, setAiText] = useState("");
+  const [showParser, setShowParser] = useState(false);
+  const [parserFeedback, setParserFeedback] = useState<string | null>(null);
   const [records, setRecords] = useState<DietRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const formCardRef = useRef<HTMLDivElement>(null);
@@ -47,7 +51,7 @@ export default function DietPage() {
         碳水: parseInt(String(r["碳水(g)"])) || 0,
         脂肪: parseInt(String(r["脂肪(g)"])) || 0,
       }));
-      setRecords(mapped.slice(-10).reverse());
+      setRecords(mapped.slice(-20).reverse());
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, []);
@@ -82,7 +86,7 @@ export default function DietPage() {
     finally { setSubmitting(false); setTimeout(() => setFeedback(null), 3000); }
   };
 
-  const recent10 = records;
+  const recent20 = records;
 
   const handleCopy = (r: DietRecord) => {
     setForm(p => ({
@@ -92,6 +96,28 @@ export default function DietPage() {
       carbs: String(r.碳水), fat: String(r.脂肪), note: "",
     }));
     formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleParse = () => {
+    if (!aiText.trim()) {
+      setParserFeedback("请粘贴 AI 回答内容");
+      return;
+    }
+    const parsed = parseNutrition(aiText);
+    const updates: Record<string, string> = {};
+    if (parsed.calories !== undefined) updates.calories = String(parsed.calories);
+    if (parsed.protein !== undefined) updates.protein = String(parsed.protein);
+    if (parsed.carbs !== undefined) updates.carbs = String(parsed.carbs);
+    if (parsed.fat !== undefined) updates.fat = String(parsed.fat);
+    if (parsed.desc) updates.foodDesc = parsed.desc;
+    setForm(p => ({ ...p, ...updates }));
+    const found = Object.keys(updates).filter(k => k !== "foodDesc");
+    if (parsed.missing.length === 0) {
+      setParserFeedback(`✅ 已自动填入 ${found.length} 项营养素`);
+    } else {
+      setParserFeedback(`⚠️ 已填入 ${found.length} 项，缺少：${parsed.missing.join("、")}`);
+    }
+    setTimeout(() => setParserFeedback(null), 4000);
   };
 
   return (
@@ -119,6 +145,33 @@ export default function DietPage() {
           <textarea rows={3} value={form.foodDesc} onChange={e => setField("foodDesc", e.target.value)}
             placeholder="如「宫保鸡丁饭 + 炒青菜」"
             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" />
+          <button type="button" onClick={() => setShowParser(s => !s)}
+            className="mt-2 text-xs px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors">
+            {showParser ? "🔼 收起解析器" : "🔽 从 AI 回答自动解析营养素"}
+          </button>
+          {showParser && (
+            <div className="mt-3 p-3 bg-purple-50 rounded-lg">
+              <p className="text-xs text-purple-700 mb-2">
+                把 Gemini / Claude 的回答粘贴到下面，点解析会自动填入上方营养素框：
+              </p>
+              <textarea rows={4} value={aiText} onChange={e => setAiText(e.target.value)}
+                placeholder="例：&#10;* 热量：约 414 kcal&#10;* 蛋白质：约 45.9 g&#10;* 碳水化合物：约 36.9 g&#10;* 脂肪：约 9.8 g"
+                className="w-full px-3 py-2 border rounded-lg text-sm font-mono resize-none" />
+              <div className="flex items-center gap-2 mt-2">
+                <button type="button" onClick={handleParse}
+                  className="px-4 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">
+                  🔍 解析
+                </button>
+                <button type="button" onClick={() => setAiText("")}
+                  className="px-3 py-1.5 text-gray-500 text-sm rounded-lg hover:bg-gray-100">
+                  清空
+                </button>
+                {parserFeedback && (
+                  <span className="text-xs text-purple-700">{parserFeedback}</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mb-4">
@@ -162,12 +215,12 @@ export default function DietPage() {
         </div>
       </div>
 
-      {/* 最近 10 条记录 */}
+      {/* 最近 20 条记录 */}
       <div className="bg-white rounded-xl shadow-sm p-4">
-        <h2 className="text-sm font-medium text-gray-500 mb-3">📋 最近 10 条记录</h2>
+        <h2 className="text-sm font-medium text-gray-500 mb-3">📋 最近 20 条记录</h2>
         {loading ? (
           <p className="text-gray-400 text-center py-4">加载中...</p>
-        ) : recent10.length > 0 ? (
+        ) : recent20.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -183,7 +236,7 @@ export default function DietPage() {
                 </tr>
               </thead>
               <tbody>
-                {recent10.map((r, i) => (
+                {recent20.map((r, i) => (
                   <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="py-2 whitespace-nowrap">{r.日期}</td>
                     <td className="py-2">{r.餐次}</td>

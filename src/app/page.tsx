@@ -344,9 +344,9 @@ export default function DashboardPage() {
                     <div className="flex justify-between text-xs text-gray-400">
                       <span>总进度 {pctDone}%（已减 {totalLost.toFixed(1)}kg）</span>
                       <span>
-                        周目标 ↓{expectedWeekly.toFixed(1)}kg · 实际 
+                        周目标 ↓{expectedWeekly.toFixed(1)}kg · 实际
                         <span className={onTrack ? "text-green-500" : "text-red-500"}>
-                          {actualWeekly > 0 ? "↑" : "↓"}{Math.abs(actualWeekly).toFixed(1)}kg
+                          {actualWeekly >= 0 ? "↓" : "↑"}{Math.abs(actualWeekly).toFixed(1)}kg
                           {onTrack ? " ✅" : " ⚠️"}
                         </span>
                       </span>
