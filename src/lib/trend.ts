@@ -107,7 +107,7 @@ export function evaluateFlags(
       flags.push({
         level: "critical",
         metric: "weight",
-        message: `体重上升 ${data.weight.stats.change.toFixed(1)}kg（${wPct.toFixed(1)}%），近 7 天热量达标率偏低`,
+        message: `体重上升 ${data.weight.stats.change.toFixed(1)}kg（${wPct.toFixed(1)}%），近 ${data.period.days} 天热量达标率偏低`,
       });
     }
   }
@@ -117,7 +117,7 @@ export function evaluateFlags(
     flags.push({
       level: "critical",
       metric: "sleep",
-      message: `周均睡眠仅 ${data.sleep.stats.avg.toFixed(1)}h，严重不足 → 影响代谢和训练恢复`,
+      message: `近 ${data.period.days} 天日均睡眠仅 ${data.sleep.stats.avg.toFixed(1)}h，严重不足 → 影响代谢和训练恢复`,
     });
   }
 
@@ -133,7 +133,7 @@ export function evaluateFlags(
     flags.push({
       level: "warning",
       metric: "sleep",
-      message: `近 7 天有 ${days} 天睡眠不足 ${thresholds.sleepInsufficientHours}h`,
+      message: `近 ${data.period.days} 天有 ${days} 天睡眠不足 ${thresholds.sleepInsufficientHours}h`,
     });
   }
 
@@ -209,7 +209,7 @@ export function evaluateFlags(
     flags.push({
       level: "positive",
       metric: "diet",
-      message: `近 7 天热量达标率 ${(data.diet.stats.calorieGoalHitRate * 100).toFixed(0)}%`,
+      message: `近 ${data.period.days} 天热量达标率 ${(data.diet.stats.calorieGoalHitRate * 100).toFixed(0)}%`,
     });
   }
 

@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getTodayStr } from "@/lib/date";
 import { parseNutrition } from "@/lib/nutrition-parser";
+import {
+  ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
+} from "recharts";
 
 interface DietRecord {
   日期: string;
@@ -36,11 +39,24 @@ export default function DietPage() {
   const [records, setRecords] = useState<DietRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const formCardRef = useRef<HTMLDivElement>(null);
+  // 趋势图数据
+  const [dietSummaries, setDietSummaries] = useState<Record<string, unknown>[]>([]);
+  const [calorieTarget, setCalorieTarget] = useState<number>(1500);
+  const [latestWeight, setLatestWeight] = useState<number>(0);
+  const [exercisedToday, setExercisedToday] = useState(false);
+  const [trendDays, setTrendDays] = useState(7);
+  const [showCalTarget, setShowCalTarget] = useState(false);
+  const [showProteinTarget, setShowProteinTarget] = useState(false);
+  const [nutrientFilter, setNutrientFilter] = useState({ calories: true, protein: true, carbs: true, fat: true });
 
   const fetchRecords = useCallback(async () => {
     try {
-      const r = await fetch("/api/data?type=diet&days=30");
-      const d = await r.json();
+      const [dietR, goalR, weightR] = await Promise.all([
+        fetch("/api/data?type=diet&days=30"),
+        fetch("/api/data?type=goal"),
+        fetch("/api/data?type=weight&days=30"),
+      ]);
+      const d = await dietR.json();
       const mapped: DietRecord[] = (d.records || []).map((r: any) => ({
         日期: String(r["日期"]),
         记录时间: String(r["记录时间"] || ""),
@@ -52,6 +68,17 @@ export default function DietPage() {
         脂肪: parseInt(String(r["脂肪(g)"])) || 0,
       }));
       setRecords(mapped.slice(-20).reverse());
+      const summaries = (d.summaries || [])
+        .sort((a: any, b: any) => String(a["日期"]).localeCompare(String(b["日期"])))
+        .slice(-30);
+      setDietSummaries(summaries);
+      const goalData = await goalR.json();
+      if (goalData.goal) {
+        setCalorieTarget(parseFloat(String(goalData.goal["每日热量目标(kcal)"])) || 1500);
+      }
+      const weightData = await weightR.json();
+      const ws = weightData.weights || [];
+      setLatestWeight(ws.length > 0 ? ws[ws.length - 1].weight : 0);
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, []);
@@ -88,6 +115,21 @@ export default function DietPage() {
 
   const recent20 = records;
 
+  // 趋势图数据
+  const chartData = dietSummaries
+    .slice(-trendDays)
+    .map(r => ({
+      date: String(r["日期"]).slice(5),
+      calories: parseInt(String(r["总热量"])) || 0,
+      protein: Math.round(parseFloat(String(r["总蛋白质"])) || 0),
+      carbs: Math.round(parseFloat(String(r["总碳水"])) || 0),
+      fat: Math.round(parseFloat(String(r["总脂肪"])) || 0),
+    }));
+  const proteinTarget = latestWeight * (exercisedToday ? 1.6 : 1.2);
+
+  const toggleNutrient = (k: string) =>
+    setNutrientFilter(p => ({ ...p, [k]: !(p as any)[k] }));
+
   const handleCopy = (r: DietRecord) => {
     setForm(p => ({
       ...p,  // 保留当前表单的日期、餐次
@@ -109,7 +151,7 @@ export default function DietPage() {
     if (parsed.protein !== undefined) updates.protein = String(parsed.protein);
     if (parsed.carbs !== undefined) updates.carbs = String(parsed.carbs);
     if (parsed.fat !== undefined) updates.fat = String(parsed.fat);
-    if (parsed.desc) updates.foodDesc = parsed.desc;
+    if (parsed.desc && !form.foodDesc.trim()) updates.foodDesc = parsed.desc;
     setForm(p => ({ ...p, ...updates }));
     const found = Object.keys(updates).filter(k => k !== "foodDesc");
     if (parsed.missing.length === 0) {
@@ -214,6 +256,73 @@ export default function DietPage() {
           <p className="mt-1 text-blue-500">提示：描述时尽量带上份量估计（克数），结果更准确。</p>
         </div>
       </div>
+
+      {/* 营养素趋势图 */}
+      {chartData.length >= 2 && (
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-gray-500">📈 摄入趋势</h2>
+            <div className="flex gap-1 text-xs">
+              {[7, 14, 30].map(d => (
+                <button key={d} onClick={() => setTrendDays(d)}
+                  className={`px-2 py-1 rounded ${trendDays === d ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                  {d}天
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 营养素开关 */}
+          <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
+            {[
+              { k: "calories", l: "热量", c: "bg-blue-100 text-blue-700" },
+              { k: "protein", l: "蛋白质", c: "bg-green-100 text-green-700" },
+              { k: "carbs", l: "碳水", c: "bg-yellow-100 text-yellow-700" },
+              { k: "fat", l: "脂肪", c: "bg-red-100 text-red-700" },
+            ].map(n => (
+              <button key={n.k} onClick={() => toggleNutrient(n.k)}
+                className={`px-2 py-1 rounded-full transition-colors ${(nutrientFilter as any)[n.k] ? n.c : "bg-gray-100 text-gray-400"}`}>
+                {n.l}
+              </button>
+            ))}
+            <span className="text-gray-300 mx-1">|</span>
+            <button onClick={() => setShowCalTarget(s => !s)}
+              className={`px-2 py-1 rounded-full transition-colors ${showCalTarget ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-400"}`}>
+              热量目标 ({calorieTarget})
+            </button>
+            <button onClick={() => setShowProteinTarget(s => !s)}
+              className={`px-2 py-1 rounded-full transition-colors ${showProteinTarget ? "bg-green-500 text-white" : "bg-gray-100 text-gray-400"}`}>
+              蛋白质目标 ({proteinTarget.toFixed(0)}g)
+            </button>
+            <select value={exercisedToday ? "1.6" : "1.2"}
+              onChange={e => setExercisedToday(e.target.value === "1.6")}
+              className={`ml-1 px-1.5 py-1 rounded text-xs border ${exercisedToday ? "border-green-300 bg-green-50 text-green-700" : "border-gray-200 text-gray-400"}`}>
+              <option value="1.2">1.2 g/kg</option>
+              <option value="1.6">1.6 g/kg</option>
+            </select>
+          </div>
+
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 11 }} label={{ value: "kcal", angle: -90, position: "insideLeft", style: { fontSize: 11 } }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} label={{ value: "g", angle: 90, position: "insideRight", style: { fontSize: 11 } }} />
+              <Tooltip />
+              <Legend />
+              {nutrientFilter.calories && <Bar yAxisId="left" dataKey="calories" fill="#3b82f6" name="热量 (kcal)" radius={[3, 3, 0, 0]} />}
+              {nutrientFilter.protein && <Line yAxisId="right" type="monotone" dataKey="protein" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} name="蛋白质 (g)" />}
+              {nutrientFilter.carbs && <Line yAxisId="right" type="monotone" dataKey="carbs" stroke="#eab308" strokeWidth={2} dot={{ r: 3 }} name="碳水 (g)" />}
+              {nutrientFilter.fat && <Line yAxisId="right" type="monotone" dataKey="fat" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} name="脂肪 (g)" />}
+              {showCalTarget && <ReferenceLine yAxisId="left" y={calorieTarget} stroke="#3b82f6" strokeDasharray="6 4" label={{ value: `${calorieTarget} kcal`, position: "insideTopRight", fontSize: 10 }} />}
+              {showProteinTarget && <ReferenceLine yAxisId="right" y={proteinTarget} stroke="#22c55e" strokeDasharray="6 4" label={{ value: `${proteinTarget.toFixed(0)}g`, position: "insideTopRight", fontSize: 10 }} />}
+            </ComposedChart>
+          </ResponsiveContainer>
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            柱状 = 热量 (左轴 kcal) · 折线 = 营养素 (右轴 g) · 蛋白质目标 = 体重 × {exercisedToday ? "1.6（运动日）" : "1.2（休息日）"} g/kg
+          </p>
+        </div>
+      )}
 
       {/* 最近 20 条记录 */}
       <div className="bg-white rounded-xl shadow-sm p-4">

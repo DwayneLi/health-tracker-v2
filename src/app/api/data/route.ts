@@ -244,7 +244,9 @@ export async function GET(req: NextRequest) {
       case "sleep": {
         const sleeps = excel.readSheet(excel.SHEETS.SLEEP);
         return NextResponse.json({
-          sleeps: sleeps.slice(-days).map((r) => ({
+          sleeps: sleeps.slice(-days)
+            .sort((a, b) => String(a["日期"]).localeCompare(String(b["日期"])))
+            .map((r) => ({
             date: String(r["日期"]),
             hours: parseFloat(String(r["睡眠时长(小时)"])) || 0,
             bedHours: parseFloat(String(r["卧床时长(小时)"])) || 0,
@@ -259,7 +261,9 @@ export async function GET(req: NextRequest) {
       case "active_energy": {
         const data = excel.readSheet(excel.SHEETS.ACTIVE_ENERGY);
         return NextResponse.json({
-          records: data.slice(-days).map((r) => ({
+          records: data.slice(-days)
+            .sort((a, b) => String(a["日期"]).localeCompare(String(b["日期"])))
+            .map((r) => ({
             date: String(r["日期"]),
             calories: Math.round(parseFloat(String(r["活动卡路里(kcal)"])) || 0),
             source: String(r["数据来源"] || ""),
@@ -339,11 +343,15 @@ export async function GET(req: NextRequest) {
             source: String(r["数据来源"] || ""),
           })),
           dietSummary: dietSummary.slice(-30),
-          sleeps: sleeps.slice(-30).map((r) => ({
+          sleeps: sleeps.slice(-30)
+            .sort((a, b) => String(a["日期"]).localeCompare(String(b["日期"])))
+            .map((r) => ({
             date: String(r["日期"]),
             hours: parseFloat(String(r["睡眠时长(小时)"])) || 0,
           })),
-          activeEnergies: activeEnergy.slice(-30).map((r) => ({
+          activeEnergies: activeEnergy.slice(-30)
+            .sort((a, b) => String(a["日期"]).localeCompare(String(b["日期"])))
+            .map((r) => ({
             date: String(r["日期"]),
             kcal: Math.round(parseFloat(String(r["活动卡路里(kcal)"])) || 0),
           })),
