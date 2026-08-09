@@ -105,6 +105,9 @@ const HEADERS: Record<string, string[]> = {
     "每周减重百分比(%)",
     "当前周应减(kg)",
     "每日热量目标(kcal)",
+    "TDEE(kcal)",
+    "蛋白质基准(g/kg)",
+    "自动计算热量",
   ],
   [SHEETS.SUGGESTIONS]: [
     "日期",
@@ -808,6 +811,9 @@ export function saveGoal(goal: {
   "每周减重百分比(%)": number;
   "当前周应减(kg)": number;
   "每日热量目标(kcal)": number;
+  "TDEE(kcal)"?: number;
+  "蛋白质基准(g/kg)"?: number;
+  "自动计算热量"?: string;
 }): void {
   writeSheet(SHEETS.GOAL, [goal]);
 }
@@ -833,6 +839,9 @@ export function recalculateWeeklyTarget(): void {
     "每周减重百分比(%)": weeklyPct,
     "当前周应减(kg)": Math.round(currentWeekTarget * 100) / 100,
     "每日热量目标(kcal)": parseFloat(String(goal["每日热量目标(kcal)"])) || 2000,
+    "TDEE(kcal)": parseFloat(String(goal["TDEE(kcal)"] || 2200)) || 2200,
+    "蛋白质基准(g/kg)": parseFloat(String(goal["蛋白质基准(g/kg)"] || 1.2)) || 1.2,
+    "自动计算热量": String(goal["自动计算热量"] || "true"),
   });
 }
 

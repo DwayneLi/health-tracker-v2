@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getTodayStr } from "@/lib/date";
-import { parseNutrition } from "@/lib/nutrition-parser";
+import { parseNutrition, parseMultiMeal } from "@/lib/nutrition-parser";
+import type { MultiMealItem } from "@/lib/nutrition-parser";
 import {
   ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine,
 } from "recharts";
@@ -17,6 +18,13 @@ interface DietRecord {
   碳水: number;
   脂肪: number;
 }
+
+// ── 蛋白粉预设 ──
+const PROTEIN_PRESETS = [
+  { name: "酵母蛋白粉", scoopG: 37, s1: { cal: 153, p: 32, c: 0, f: 2 }, s2: { cal: 306, p: 64, c: 1, f: 5 } },
+  { name: "酪蛋白粉",   scoopG: 33, s1: { cal: 123, p: 28, c: 1, f: 0 }, s2: { cal: 246, p: 57, c: 2, f: 1 } },
+  { name: "乳清蛋白粉", scoopG: 30, s1: { cal: 120, p: 23, c: 3, f: 2 }, s2: { cal: 241, p: 46, c: 6, f: 4 } },
+];
 
 export default function DietPage() {
   const today = getTodayStr();
@@ -34,11 +42,20 @@ export default function DietPage() {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [aiText, setAiText] = useState("");
-  const [showParser, setShowParser] = useState(false);
   const [parserFeedback, setParserFeedback] = useState<string | null>(null);
   const [records, setRecords] = useState<DietRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const formCardRef = useRef<HTMLDivElement>(null);
+
+  // 批量多餐状态
+  const [multiMeals, setMultiMeals] = useState<MultiMealItem[]>([]);
+  const [batchSaving, setBatchSaving] = useState(false);
+  const [batchFeedback, setBatchFeedback] = useState<string | null>(null);
+  // 单餐解析结果（右列显示）
+  const [parsedResult, setParsedResult] = useState<{
+    desc: string; calories: string; protein: string; carbs: string; fat: string;
+  } | null>(null);
+
   // 趋势图数据
   const [dietSummaries, setDietSummaries] = useState<Record<string, unknown>[]>([]);
   const [calorieTarget, setCalorieTarget] = useState<number>(1500);
@@ -132,7 +149,7 @@ export default function DietPage() {
 
   const handleCopy = (r: DietRecord) => {
     setForm(p => ({
-      ...p,  // 保留当前表单的日期、餐次
+      ...p,
       foodDesc: r.食物描述,
       calories: String(r.热量), protein: String(r.蛋白质),
       carbs: String(r.碳水), fat: String(r.脂肪), note: "",
@@ -140,32 +157,298 @@ export default function DietPage() {
     formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // ── AI 解析 ──
   const handleParse = () => {
     if (!aiText.trim()) {
       setParserFeedback("请粘贴 AI 回答内容");
       return;
     }
-    const parsed = parseNutrition(aiText);
-    const updates: Record<string, string> = {};
-    if (parsed.calories !== undefined) updates.calories = String(parsed.calories);
-    if (parsed.protein !== undefined) updates.protein = String(parsed.protein);
-    if (parsed.carbs !== undefined) updates.carbs = String(parsed.carbs);
-    if (parsed.fat !== undefined) updates.fat = String(parsed.fat);
-    if (parsed.desc && !form.foodDesc.trim()) updates.foodDesc = parsed.desc;
-    setForm(p => ({ ...p, ...updates }));
-    const found = Object.keys(updates).filter(k => k !== "foodDesc");
-    if (parsed.missing.length === 0) {
-      setParserFeedback(`✅ 已自动填入 ${found.length} 项营养素`);
+    setMultiMeals([]);
+    setParsedResult(null);
+    setParserFeedback(null);
+
+    // 判断是否为多餐：营养素关键词出现 ≥5 次，或有空行分隔
+    const nutrientCount = (aiText.match(/(热量|卡路里|蛋白质|碳水|脂肪|总[热量卡])/g) || []).length;
+    const hasBlankLine = /\n\s*\n/.test(aiText);
+
+    if (nutrientCount >= 5 || hasBlankLine) {
+      // 多餐模式
+      const meals = parseMultiMeal(aiText);
+      if (meals.length === 0) {
+        setParserFeedback("⚠️ 未能解析到餐次，请检查格式");
+        return;
+      }
+      setMultiMeals(meals);
+      setParserFeedback(`✅ 解析到 ${meals.length} 餐，可在下方修改后一键录入`);
     } else {
-      setParserFeedback(`⚠️ 已填入 ${found.length} 项，缺少：${parsed.missing.join("、")}`);
+      // 单餐模式
+      const parsed = parseNutrition(aiText);
+      const result = {
+        desc: parsed.desc || "",
+        calories: parsed.calories !== undefined ? String(parsed.calories) : "",
+        protein: parsed.protein !== undefined ? String(parsed.protein) : "",
+        carbs: parsed.carbs !== undefined ? String(parsed.carbs) : "",
+        fat: parsed.fat !== undefined ? String(parsed.fat) : "",
+      };
+      setParsedResult(result);
+      const found = [result.calories && "热量", result.protein && "蛋白质", result.carbs && "碳水", result.fat && "脂肪"].filter(Boolean);
+      if (parsed.missing.length === 0) {
+        setParserFeedback(`✅ 已解析 ${found.length} 项营养素`);
+      } else {
+        setParserFeedback(`⚠️ 已解析 ${found.length} 项，缺少：${parsed.missing.join("、")}`);
+      }
     }
     setTimeout(() => setParserFeedback(null), 4000);
+  };
+
+  // ── 单餐解析结果填入表单 ──
+  const applyParsed = () => {
+    if (!parsedResult) return;
+    setForm(p => ({
+      ...p,
+      foodDesc: parsedResult.desc || p.foodDesc,
+      calories: parsedResult.calories || p.calories,
+      protein: parsedResult.protein || p.protein,
+      carbs: parsedResult.carbs || p.carbs,
+      fat: parsedResult.fat || p.fat,
+    }));
+    setParsedResult(null);
+    setParserFeedback(null);
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // ── 蛋白粉快速填充 ──
+  const fillProtein = (preset: typeof PROTEIN_PRESETS[0], scoops: 1 | 2) => {
+    const s = scoops === 1 ? preset.s1 : preset.s2;
+    setForm(p => ({
+      ...p,
+      foodDesc: preset.name,
+      calories: String(s.cal),
+      protein: String(s.p),
+      carbs: String(s.c),
+      fat: String(s.f),
+    }));
+    formCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // ── 批量多餐录入 ──
+  const handleBatchSave = async () => {
+    setBatchSaving(true);
+    setBatchFeedback(null);
+    const mealOrder = ["早餐", "午餐", "晚餐"];
+    let success = 0;
+    let fail = 0;
+
+    try {
+      await Promise.all(multiMeals.map(async (meal, i) => {
+        const mealType = i < 3 ? mealOrder[i] : "加餐";
+        const resp = await fetch("/api/data", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "add_diet",
+            foodDesc: meal.desc || `第${i + 1}餐`,
+            mealType,
+            calories: Number(meal.calories) || 0,
+            protein: Number(meal.protein) || 0,
+            carbs: Number(meal.carbs) || 0,
+            fat: Number(meal.fat) || 0,
+            date: form.date,
+            note: "",
+          }),
+        });
+        if (resp.ok) success++; else fail++;
+      }));
+
+      if (fail === 0) {
+        setBatchFeedback(`✅ 全部 ${success} 餐已录入！`);
+        setMultiMeals([]);
+        setAiText("");
+        fetchRecords();
+      } else {
+        setBatchFeedback(`⚠️ ${success} 成功，${fail} 失败`);
+      }
+    } catch {
+      setBatchFeedback("❌ 网络错误，请重试");
+    } finally {
+      setBatchSaving(false);
+      setTimeout(() => setBatchFeedback(null), 4000);
+    }
+  };
+
+  // ── 多餐列表编辑 ──
+  const updateMultiMeal = (i: number, field: string, value: string) => {
+    setMultiMeals(prev => prev.map((m, idx) => idx === i ? { ...m, [field]: value } : m));
+  };
+  const removeMultiMeal = (i: number) => {
+    setMultiMeals(prev => prev.filter((_, idx) => idx !== i));
+  };
+  const addMultiMeal = () => {
+    setMultiMeals(prev => [...prev, { desc: "", calories: "", protein: "", carbs: "", fat: "" }]);
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-lg font-bold">🍽️ 饮食录入</h1>
 
+      {/* ── AI 解析区：双列布局，始终可见 ── */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <h2 className="text-sm font-medium text-gray-500 mb-4">🤖 AI 辅助解析</h2>
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* 左列：粘贴区 */}
+          <div className="flex-1">
+            <textarea
+              rows={10}
+              value={aiText}
+              onChange={e => { setAiText(e.target.value); setMultiMeals([]); setParsedResult(null); setParserFeedback(null); }}
+              placeholder={`请按以下格式回复（第一行=食物名，接下来放营养素，支持一次粘贴多餐，用空行分隔）：
+
+150 克米饭、75 克番茄炒蛋...
+热量：约 XXX kcal
+蛋白质：约 XXX g
+碳水化合物：约 XXX g
+脂肪：约 XXX g
+
+1/3 个山姆牛肉卷...
+热量：约 XXX kcal
+...`}
+              className="w-full px-3 py-2 border rounded-lg text-sm font-mono resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            />
+            <div className="flex items-center gap-2 mt-2">
+              <button type="button" onClick={handleParse}
+                className="px-4 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">
+                🔍 解析并填入
+              </button>
+              <button type="button" onClick={() => { setAiText(""); setMultiMeals([]); setParsedResult(null); setParserFeedback(null); }}
+                className="px-3 py-1.5 text-gray-500 text-sm rounded-lg hover:bg-gray-100">
+                清空
+              </button>
+              {parserFeedback && (
+                <span className={`text-xs ${parserFeedback.startsWith("✅") ? "text-green-600" : parserFeedback.startsWith("⚠️") ? "text-amber-600" : "text-red-600"}`}>
+                  {parserFeedback}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 右列：单餐解析结果（仅在单餐模式下显示） */}
+          {parsedResult && !multiMeals.length && (
+            <div className="flex-1 p-4 bg-purple-50 rounded-lg">
+              <p className="text-xs text-purple-700 font-medium mb-3">解析结果（可修改后录入）</p>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-0.5">食物描述</label>
+                  <input type="text" value={parsedResult.desc}
+                    onChange={e => setParsedResult(p => p ? { ...p, desc: e.target.value } : null)}
+                    className="w-full px-2 py-1.5 border rounded text-sm focus:ring-2 focus:ring-purple-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { k: "calories", l: "热量(kcal)" },
+                    { k: "protein", l: "蛋白质(g)" },
+                    { k: "carbs", l: "碳水(g)" },
+                    { k: "fat", l: "脂肪(g)" },
+                  ].map(f => (
+                    <div key={f.k}>
+                      <label className="block text-xs text-gray-500 mb-0.5">{f.l}</label>
+                      <input type="number" value={(parsedResult as any)[f.k]}
+                        onChange={e => setParsedResult(p => p ? { ...p, [f.k]: e.target.value } : null)}
+                        className="w-full px-2 py-1.5 border rounded text-sm focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                  ))}
+                </div>
+                <button onClick={applyParsed}
+                  className="w-full mt-2 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">
+                  📝 录入此餐
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── 蛋白粉预设 ── */}
+      <div className="bg-white rounded-xl shadow-sm p-4">
+        <h2 className="text-sm font-medium text-gray-500 mb-3">🥛 蛋白粉快速选择</h2>
+        <div className="grid grid-cols-3 gap-3">
+          {PROTEIN_PRESETS.map(p => (
+            <div key={p.name} className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm font-medium text-amber-900 mb-1">{p.name}</p>
+              <p className="text-xs text-amber-600 mb-2">{p.scoopG}g/勺</p>
+              <div className="flex gap-2">
+                <button onClick={() => fillProtein(p, 1)}
+                  className="flex-1 py-1 px-2 text-xs bg-amber-200 hover:bg-amber-300 text-amber-800 rounded transition-colors">
+                  1勺
+                </button>
+                <button onClick={() => fillProtein(p, 2)}
+                  className="flex-1 py-1 px-2 text-xs bg-amber-200 hover:bg-amber-300 text-amber-800 rounded transition-colors">
+                  2勺
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 批量多餐卡片（多餐模式下显示） ── */}
+      {multiMeals.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm p-4 border-2 border-purple-200">
+          <h2 className="text-sm font-medium text-purple-700 mb-3">
+            📋 解析到 {multiMeals.length} 餐，可修改后一键录入
+          </h2>
+          <div className="space-y-3 mb-4">
+            {multiMeals.map((meal, i) => (
+              <div key={i} className="p-3 bg-gray-50 rounded-lg relative">
+                <button onClick={() => removeMultiMeal(i)}
+                  className="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-sm transition-colors"
+                  title="删除此餐">
+                  ❌
+                </button>
+                <div className="mb-2 pr-8">
+                  <label className="block text-xs text-gray-500 mb-0.5">食物</label>
+                  <input type="text" value={meal.desc}
+                    onChange={e => updateMultiMeal(i, "desc", e.target.value)}
+                    className="w-full px-2 py-1 border rounded text-sm" />
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { k: "calories", l: "热量(kcal)" },
+                    { k: "protein", l: "蛋白质(g)" },
+                    { k: "carbs", l: "碳水(g)" },
+                    { k: "fat", l: "脂肪(g)" },
+                  ].map(f => (
+                    <div key={f.k}>
+                      <label className="block text-xs text-gray-500 mb-0.5">{f.l}</label>
+                      <input type="number" value={(meal as any)[f.k]}
+                        onChange={e => updateMultiMeal(i, f.k, e.target.value)}
+                        className="w-full px-1.5 py-1 border rounded text-sm" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={addMultiMeal}
+              className="px-3 py-1.5 text-sm border border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-purple-300 hover:text-purple-600 transition-colors">
+              ➕ 新增一餐
+            </button>
+            <button onClick={handleBatchSave} disabled={batchSaving}
+              className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50">
+              {batchSaving ? "录入中..." : "🚀 一键全部录入"}
+            </button>
+            {batchFeedback && (
+              <span className={`text-sm ${batchFeedback.startsWith("✅") ? "text-green-600" : "text-red-600"}`}>
+                {batchFeedback}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            餐次分配：第1餐→早餐 · 第2餐→午餐 · 第3餐→晚餐 · 第4+餐→加餐
+          </p>
+        </div>
+      )}
+
+      {/* ── 手动录入表单 ── */}
       <div className="bg-white rounded-xl shadow-sm p-6" ref={formCardRef}>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
@@ -187,33 +470,6 @@ export default function DietPage() {
           <textarea rows={3} value={form.foodDesc} onChange={e => setField("foodDesc", e.target.value)}
             placeholder="如「宫保鸡丁饭 + 炒青菜」"
             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" />
-          <button type="button" onClick={() => setShowParser(s => !s)}
-            className="mt-2 text-xs px-3 py-1.5 rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors">
-            {showParser ? "🔼 收起解析器" : "🔽 从 AI 回答自动解析营养素"}
-          </button>
-          {showParser && (
-            <div className="mt-3 p-3 bg-purple-50 rounded-lg">
-              <p className="text-xs text-purple-700 mb-2">
-                把 Gemini / Claude 的回答粘贴到下面，点解析会自动填入上方营养素框：
-              </p>
-              <textarea rows={4} value={aiText} onChange={e => setAiText(e.target.value)}
-                placeholder="例：&#10;* 热量：约 414 kcal&#10;* 蛋白质：约 45.9 g&#10;* 碳水化合物：约 36.9 g&#10;* 脂肪：约 9.8 g"
-                className="w-full px-3 py-2 border rounded-lg text-sm font-mono resize-none" />
-              <div className="flex items-center gap-2 mt-2">
-                <button type="button" onClick={handleParse}
-                  className="px-4 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors">
-                  🔍 解析
-                </button>
-                <button type="button" onClick={() => setAiText("")}
-                  className="px-3 py-1.5 text-gray-500 text-sm rounded-lg hover:bg-gray-100">
-                  清空
-                </button>
-                {parserFeedback && (
-                  <span className="text-xs text-purple-700">{parserFeedback}</span>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="mb-4">

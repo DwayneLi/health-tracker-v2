@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "save_goal": {
-        const { targetWeight, weeklyPct, dailyCalories } = body;
+        const { targetWeight, weeklyPct, dailyCalories, tdee, proteinPerKg, autoCalc } = body;
         const today = getTodayStr();
 
         const weights = excel.readSheet(excel.SHEETS.WEIGHT);
@@ -161,6 +161,9 @@ export async function POST(req: NextRequest) {
           "每周减重百分比(%)": Number(weeklyPct),
           "当前周应减(kg)": Math.round(currentWeekTarget * 100) / 100,
           "每日热量目标(kcal)": Number(dailyCalories),
+          "TDEE(kcal)": tdee != null ? Number(tdee) : undefined,
+          "蛋白质基准(g/kg)": proteinPerKg != null ? Number(proteinPerKg) : undefined,
+          "自动计算热量": autoCalc != null ? String(autoCalc) : undefined,
         });
 
         excel.recalculateWeeklyTarget();

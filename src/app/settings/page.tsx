@@ -1,31 +1,72 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 export default function SettingsPage() {
   const [goal, setGoal] = useState({
     targetWeight: "",
     weeklyPct: "0.5",
     dailyCalories: "1500",
+    tdee: "2200",
+    autoCalc: true,
+    proteinPerKg: "1.2",
   });
+  const [currentWeight, setCurrentWeight] = useState(0);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    fetch("/api/data?type=goal")
-      .then((r) => r.json())
-      .then((d) => {
+    Promise.all([
+      fetch("/api/data?type=goal").then((r) => r.json()),
+      fetch("/api/data?type=weight&days=1").then((r) => r.json()),
+    ])
+      .then(([d, w]) => {
         if (d.goal) {
           setGoal({
             targetWeight: String(d.goal["目标体重(kg)"] || ""),
             weeklyPct: String(d.goal["每周减重百分比(%)"] || "0.5"),
             dailyCalories: String(d.goal["每日热量目标(kcal)"] || "2000"),
+            tdee: String(d.goal["TDEE(kcal)"] || "2200"),
+            autoCalc: String(d.goal["自动计算热量"] || "true") === "true",
+            proteinPerKg: String(d.goal["蛋白质基准(g/kg)"] || "1.2"),
           });
         } else {
-          setGoal({ targetWeight: "75", weeklyPct: "0.75", dailyCalories: "1500" });
+          setGoal({
+            targetWeight: "75", weeklyPct: "0.75", dailyCalories: "1500",
+            tdee: "2200", autoCalc: true, proteinPerKg: "1.2",
+          });
         }
+        const ws = w.weights || [];
+        setCurrentWeight(ws.length > 0 ? ws[ws.length - 1].weight : 0);
       })
       .catch(console.error);
   }, []);
+
+  // 自动计算的每日热量（仅在 autoCalc 开启时使用）
+  const derivedCalories = useMemo(() => {
+    const w = currentWeight || parseFloat(goal.targetWeight) || 75;
+    const pct = parseFloat(goal.weeklyPct) || 0;
+    const t = parseFloat(goal.tdee) || 2200;
+    const deficit = Math.round(w * pct / 100 * 7700 / 7);
+    return Math.max(800, t - deficit);
+  }, [currentWeight, goal.targetWeight, goal.weeklyPct, goal.tdee]);
+
+  // 当前实际使用的每日热量值
+  const effectiveCalories = goal.autoCalc ? String(derivedCalories) : goal.dailyCalories;
+
+  const updateGoal = (field: string, value: string | boolean) => {
+    setGoal((prev) => {
+      const next = { ...prev, [field]: value };
+      // 切换自动计算开启时，同步计算值
+      if (field === "autoCalc" && value === true) {
+        const w = currentWeight || parseFloat(next.targetWeight) || 75;
+        const pct = parseFloat(next.weeklyPct) || 0;
+        const t = parseFloat(next.tdee) || 2200;
+        const deficit = Math.round(w * pct / 100 * 7700 / 7);
+        next.dailyCalories = String(Math.max(800, t - deficit));
+      }
+      return next;
+    });
+  };
 
   const handleSave = async () => {
     try {
@@ -36,7 +77,10 @@ export default function SettingsPage() {
           action: "save_goal",
           targetWeight: parseFloat(goal.targetWeight) || 75,
           weeklyPct: parseFloat(goal.weeklyPct) || 0.75,
-          dailyCalories: parseInt(goal.dailyCalories) || 1500,
+          dailyCalories: parseInt(effectiveCalories) || 1500,
+          tdee: parseInt(goal.tdee) || 2200,
+          proteinPerKg: parseFloat(goal.proteinPerKg) || 1.2,
+          autoCalc: String(goal.autoCalc),
         }),
       });
       if (resp.ok) {
@@ -48,10 +92,17 @@ export default function SettingsPage() {
     }
   };
 
+  const deficit = useMemo(() => {
+    const t = parseFloat(goal.tdee) || 2200;
+    const c = parseInt(effectiveCalories) || 1500;
+    return t - c;
+  }, [goal.tdee, effectiveCalories]);
+
   return (
     <div className="min-h-screen">
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         <h1 className="text-lg font-bold">⚙️ 设置</h1>
+
         {/* Apple Health 同步指南 */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="font-medium mb-4">📲 Apple Health 同步指南</h2>
@@ -180,6 +231,7 @@ export default function SettingsPage() {
           <h2 className="font-medium mb-4">🎯 减重目标</h2>
 
           <div className="space-y-4">
+            {/* 目标体重 */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
                 目标体重 (kg)
@@ -187,15 +239,14 @@ export default function SettingsPage() {
               <input
                 type="number"
                 value={goal.targetWeight}
-                onChange={(e) =>
-                  setGoal({ ...goal, targetWeight: e.target.value })
-                }
+                onChange={(e) => updateGoal("targetWeight", e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="75"
               />
-              <p className="text-xs text-gray-400 mt-1">当前设置：{goal.targetWeight || "未设定"} kg</p>
+              <p className="text-xs text-gray-400 mt-1">当前体重参考：{currentWeight ? `${currentWeight} kg` : "暂无数据"}</p>
             </div>
 
+            {/* 每周减重百分比 */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
                 每周减重百分比 (%)
@@ -204,32 +255,107 @@ export default function SettingsPage() {
                 type="number"
                 step="0.1"
                 value={goal.weeklyPct}
-                onChange={(e) =>
-                  setGoal({ ...goal, weeklyPct: e.target.value })
-                }
+                onChange={(e) => updateGoal("weeklyPct", e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="0.75"
               />
               <p className="text-xs text-gray-400 mt-1">
                 建议 0.5-1.0%。体重 75kg 时 0.75% = 每周减 0.56kg
-                （每 kg 脂肪 ≈ 7700 kcal，日均缺口 {Math.round(75 * 0.75 / 100 * 7700 / 7)} kcal）
               </p>
             </div>
 
+            {/* TDEE */}
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">
+                TDEE — 每日总消耗 (kcal)
+              </label>
+              <input
+                type="number"
+                value={goal.tdee}
+                onChange={(e) => updateGoal("tdee", e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="2200"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                基础代谢 + 日常活动 + 运动的每日总消耗。久坐约 2000 · 轻度活动约 2200 · 活跃约 2500+
+              </p>
+            </div>
+
+            {/* 自动计算开关 */}
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <button
+                onClick={() => updateGoal("autoCalc", !goal.autoCalc)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  goal.autoCalc ? "bg-blue-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    goal.autoCalc ? "translate-x-5.5" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+              <div>
+                <span className="text-sm font-medium">自动计算每日热量</span>
+                <p className="text-xs text-gray-400">
+                  开启后每日目标 = TDEE − 减重缺口，自动联动
+                </p>
+              </div>
+            </div>
+
+            {/* 每日热量目标 */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
                 每日热量目标 (kcal)
               </label>
+              {goal.autoCalc ? (
+                <div>
+                  <input
+                    type="number"
+                    value={derivedCalories}
+                    disabled
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                  <p className="text-xs text-blue-500 mt-1">
+                    🔒 自动计算：{goal.tdee || "2200"} (TDEE) − {deficit} (缺口) = {derivedCalories} kcal
+                    （每 kg 脂肪 ≈ 7700 kcal）
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="number"
+                    value={goal.dailyCalories}
+                    onChange={(e) => updateGoal("dailyCalories", e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="1500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    手动设置。参考缺口：TDEE {goal.tdee || "2200"} − 目标 = 建议约 {derivedCalories} kcal
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 蛋白质基准 */}
+            <div>
+              <label className="block text-sm text-gray-500 mb-1">
+                蛋白质基准 (g/kg)
+              </label>
               <input
                 type="number"
-                value={goal.dailyCalories}
-                onChange={(e) =>
-                  setGoal({ ...goal, dailyCalories: e.target.value })
-                }
+                step="0.1"
+                value={goal.proteinPerKg}
+                onChange={(e) => updateGoal("proteinPerKg", e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="1500"
+                placeholder="1.2"
               />
-              <p className="text-xs text-gray-400 mt-1">TDEE 参考 2200 kcal · 目标缺口约 700 kcal/天</p>
+              <p className="text-xs text-gray-400 mt-1">
+                久坐 1.2 · 运动日 1.6 · 增肌 1.8-2.0。当前体重 {currentWeight || "--"} kg 时蛋白质目标 ≈{" "}
+                {currentWeight > 0
+                  ? `${Math.round(currentWeight * (parseFloat(goal.proteinPerKg) || 1.2))} g/天`
+                  : "--"}
+              </p>
             </div>
 
             <button
