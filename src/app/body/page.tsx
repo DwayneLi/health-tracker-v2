@@ -20,6 +20,7 @@ export default function BodyPage() {
   const [error, setError] = useState<string | null>(null);
   const [formWeight, setFormWeight] = useState("");
   const [formBodyFat, setFormBodyFat] = useState("");
+  const [formDate, setFormDate] = useState(getTodayStr());
   const [formNote, setFormNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState<string | null>(null);
@@ -47,8 +48,8 @@ export default function BodyPage() {
     setSubmitting(true); setSubmitMsg(null);
     const today = getTodayStr();
     const records = [];
-    if (formWeight && !isNaN(Number(formWeight))) records.push({ type: "weight", value: Number(formWeight), unit: "kg", date: today, source: "手动录入" });
-    if (formBodyFat && !isNaN(Number(formBodyFat))) records.push({ type: "body_fat", value: Number(formBodyFat), unit: "%", date: today, source: "手动录入" });
+    if (formWeight && !isNaN(Number(formWeight))) records.push({ type: "weight", value: Number(formWeight), unit: "kg", date: formDate, source: "手动录入" });
+    if (formBodyFat && !isNaN(Number(formBodyFat))) records.push({ type: "body_fat", value: Number(formBodyFat), unit: "%", date: formDate, source: "手动录入" });
     try {
       const res = await fetch("/api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ records }) });
       const result = await res.json();
@@ -213,6 +214,11 @@ export default function BodyPage() {
       {/* 手动录入表单 */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h2 className="font-medium mb-4">✏️ 手动录入（兜底）</h2>
+        <div className="mb-4">
+          <label className="block text-sm text-gray-500 mb-1">日期</label>
+          <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)}
+            className="w-48 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-500 mb-1">体重 (kg)</label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   LineChart,
   Line,
@@ -199,10 +199,19 @@ export default function DashboardPage() {
     return [Math.max(0, lower), upper];
   }
 
-  // 平均值
+  // 平均值（剔除零值/null）
   function avg(values: number[]): number {
     return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
   }
+
+  // 体脂率合并数据：以体重日期为基准，缺失日期 bodyFat 为 null
+  const bodyFatChartData = useMemo(() => {
+    const baseDates = data.weights.slice(-bodyFatDays).map(w => w.date);
+    return baseDates.map(date => {
+      const fat = data.bodyFats.find(f => f.date === date);
+      return { date, bodyFat: fat && fat.bodyFat > 0 ? fat.bodyFat : (null as number | null) };
+    });
+  }, [data.weights, data.bodyFats, bodyFatDays]);
   const caloriePercent = Math.min(
     Math.round((data.today.calories / calorieTarget) * 100),
     100
@@ -502,18 +511,22 @@ export default function DashboardPage() {
                   </LineChart>
                 </ResponsiveContainer>
                 <p className="text-xs text-gray-400 text-center mt-1">
-                  近 {weightDays} 天平均：{avg(data.weights.slice(-weightDays).map(w => w.weight)).toFixed(1)} kg
                   {(() => {
-                    const slice = data.weights.slice(-weightDays);
-                    if (slice.length >= 2) {
-                      const diff = slice[slice.length - 1].weight - slice[0].weight;
-                      return (
-                        <span className={diff < 0 ? "text-green-500 ml-2" : "text-red-500 ml-2"}>
-                          {diff < 0 ? "↓" : "↑"}{Math.abs(diff).toFixed(1)}kg
-                        </span>
-                      );
-                    }
-                    return null;
+                    const vals = data.weights.slice(-weightDays).map(w => w.weight).filter(v => v > 0);
+                    const weightAvg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+                    const valid = data.weights.slice(-weightDays).filter(w => w.weight > 0);
+                    const diff = valid.length >= 2 ? valid[valid.length - 1].weight - valid[0].weight : 0;
+                    const daysInfo = vals.length < weightDays ? `（${vals.length}天有效）` : "";
+                    return (
+                      <>
+                        近 {weightDays} 天平均：{weightAvg.toFixed(1)} kg{daysInfo}
+                        {valid.length >= 2 && (
+                          <span className={diff < 0 ? "text-green-500 ml-2" : "text-red-500 ml-2"}>
+                            {diff < 0 ? "↓" : "↑"}{Math.abs(diff).toFixed(1)}kg
+                          </span>
+                        )}
+                      </>
+                    );
                   })()}
                 </p>
               </>
@@ -542,38 +555,44 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
-            {data.bodyFats.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={data.bodyFats.slice(-bodyFatDays)}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis domain={bodyFatDomain(data.bodyFats.slice(-bodyFatDays))} tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="bodyFat" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} name="体脂率(%)" />
-                  </LineChart>
-                </ResponsiveContainer>
-                <p className="text-xs text-gray-400 text-center mt-1">
-                  近 {bodyFatDays} 天平均：{avg(data.bodyFats.slice(-bodyFatDays).map(f => f.bodyFat)).toFixed(1)}%
-                  {(() => {
-                    const slice = data.bodyFats.slice(-bodyFatDays);
-                    if (slice.length >= 2) {
-                      const diff = slice[slice.length - 1].bodyFat - slice[0].bodyFat;
+            {(() => {
+              const validFats = bodyFatChartData.filter(d => d.bodyFat !== null && d.bodyFat > 0);
+              return validFats.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={bodyFatChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis domain={bodyFatDomain(validFats as { bodyFat: number }[])} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="bodyFat" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} name="体脂率(%)" connectNulls />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <p className="text-xs text-gray-400 text-center mt-1">
+                    {(() => {
+                      const vals = validFats.map(f => f.bodyFat!).filter(v => v > 0);
+                      const fatAvg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+                      const daysInfo = vals.length < bodyFatDays ? `（${vals.length}天有效）` : "";
+                      const diff = validFats.length >= 2 ? validFats[validFats.length - 1].bodyFat! - validFats[0].bodyFat! : 0;
                       return (
-                        <span className={diff < 0 ? "text-green-500 ml-2" : "text-red-500 ml-2"}>
-                          {diff < 0 ? "↓" : "↑"}{Math.abs(diff).toFixed(1)}%
-                        </span>
+                        <>
+                          近 {bodyFatDays} 天平均：{fatAvg.toFixed(1)}%{daysInfo}
+                          {validFats.length >= 2 && (
+                            <span className={diff < 0 ? "text-green-500 ml-2" : "text-red-500 ml-2"}>
+                              {diff < 0 ? "↓" : "↑"}{Math.abs(diff).toFixed(1)}%
+                            </span>
+                          )}
+                        </>
                       );
-                    }
-                    return null;
-                  })()}
+                    })()}
+                  </p>
+                </>
+              ) : (
+                <p className="text-gray-400 text-center py-10">
+                  暂无体脂率数据，需智能体脂秤支持 Apple Health
                 </p>
-              </>
-            ) : (
-              <p className="text-gray-400 text-center py-10">
-                暂无体脂率数据，需智能体脂秤支持 Apple Health
-              </p>
-            )}
+              );
+            })()}
           </div>
 
           {/* 睡眠趋势 */}
