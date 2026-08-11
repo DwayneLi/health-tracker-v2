@@ -67,7 +67,7 @@ export default function BodyPage() {
   const latestBodyFat = bodyFats.length > 0 ? bodyFats[bodyFats.length - 1] : null;
   const chartData = weights.map(w => {
     const fat = bodyFats.find(f => f.date === w.date);
-    return { date: w.date.slice(5), weight: w.weight, bodyFat: fat ? fat.bodyFat : null };
+    return { date: w.date.slice(5), weight: w.weight, bodyFat: fat && fat.bodyFat > 0 ? fat.bodyFat : (null as number | null) };
   });
   const hasData = weights.length > 0 || bodyFats.length > 0;
   const recentWeights = weights.slice(-10).reverse();

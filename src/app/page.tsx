@@ -135,6 +135,16 @@ export default function DashboardPage() {
       });
   }, []);
 
+  // 体脂率合并数据：以体重日期为基准，缺失日期 bodyFat 为 null
+  const bodyFatChartData = useMemo(() => {
+    if (!data) return [];
+    const baseDates = data.weights.slice(-bodyFatDays).map(w => w.date);
+    return baseDates.map(date => {
+      const fat = data.bodyFats.find(f => f.date === date);
+      return { date, bodyFat: fat && fat.bodyFat > 0 ? fat.bodyFat : (null as number | null) };
+    });
+  }, [data, bodyFatDays]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -203,15 +213,6 @@ export default function DashboardPage() {
   function avg(values: number[]): number {
     return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
   }
-
-  // 体脂率合并数据：以体重日期为基准，缺失日期 bodyFat 为 null
-  const bodyFatChartData = useMemo(() => {
-    const baseDates = data.weights.slice(-bodyFatDays).map(w => w.date);
-    return baseDates.map(date => {
-      const fat = data.bodyFats.find(f => f.date === date);
-      return { date, bodyFat: fat && fat.bodyFat > 0 ? fat.bodyFat : (null as number | null) };
-    });
-  }, [data.weights, data.bodyFats, bodyFatDays]);
   const caloriePercent = Math.min(
     Math.round((data.today.calories / calorieTarget) * 100),
     100
