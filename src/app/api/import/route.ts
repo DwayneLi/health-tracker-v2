@@ -150,7 +150,7 @@ function parseSleep(samples: MergeBody["sleep"]): Map<string, number> {
 }
 
 function parseSum(
-  samples: { start?: string; value?: unknown }[]
+  samples: { start?: string; value?: unknown }[] | undefined
 ): Map<string, number> {
   const daily = new Map<string, number>();
   if (!Array.isArray(samples)) return daily;
@@ -166,7 +166,7 @@ function parseSum(
 }
 
 function parseLatest(
-  samples: { start?: string; value?: unknown; source?: string }[]
+  samples: { start?: string; value?: unknown; source?: string }[] | undefined
 ): Map<string, { val: number; src: string }> {
   const map = new Map<string, { dt: number; val: number; src: string }>();
   if (!Array.isArray(samples)) return new Map();
