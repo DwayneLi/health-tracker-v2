@@ -283,31 +283,8 @@ export function syncRecord(
       });
     }
     writeSheet(sheetName, sleepRows);
-  } else if (sheetName === SHEETS.ACTIVE_ENERGY) {
-    const aeRows = rows as Record<string, unknown>[];
-    if (existingIdx >= 0) {
-      // 手动维护优先：如果已有手动维护值，Apple Health 同步不覆盖
-      const prevSource = String(aeRows[existingIdx]["数据来源"] || "");
-      if (prevSource === "手动维护" && source === "Apple Health") {
-        return; // 保留手动维护值
-      }
-      aeRows[existingIdx] = {
-        日期: date,
-        "活动卡路里(kcal)": value,
-        数据来源: source,
-        同步时间: syncTime,
-      };
-    } else {
-      aeRows.push({
-        日期: date,
-        "活动卡路里(kcal)": value,
-        数据来源: source,
-        同步时间: syncTime,
-      });
-    }
-    writeSheet(sheetName, aeRows);
   } else {
-    // 体重/体脂率通用处理
+    // 体重/体脂率/活动卡路里通用处理：Apple Health 同步覆盖手动值
     const genericRows = rows as Record<string, unknown>[];
     if (existingIdx >= 0) {
       genericRows[existingIdx] = {

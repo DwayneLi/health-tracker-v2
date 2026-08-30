@@ -89,7 +89,7 @@ export default function ActivityPage() {
       {/* 手动录入表单 */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h2 className="font-medium mb-4">✏️ 手动维护</h2>
-        <p className="text-xs text-gray-400 mb-4">手动设置后将覆盖当天 Apple Health 同步值，来源标记为「手动维护」</p>
+        <p className="text-xs text-gray-400 mb-4">手动设置当天值（来源标记为「手动维护」），次日 Apple Health 同步会覆盖此值。</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           <div>
             <label className="block text-sm text-gray-500 mb-1">日期</label>
@@ -168,7 +168,7 @@ export default function ActivityPage() {
           <span className="text-xs px-3 py-1.5 rounded-full bg-green-100 text-green-700">🍏 Apple Health 自动同步</span>
           <span className="text-xs px-3 py-1.5 rounded-full bg-orange-100 text-orange-700">✏️ 手动维护</span>
         </div>
-        <p className="text-xs text-gray-400 mt-2">活动卡路里默认通过 Apple Watch 快捷指令同步。手动维护的值会直接覆盖同日期数据。</p>
+        <p className="text-xs text-gray-400 mt-2">活动卡路里默认通过 Apple Watch 快捷指令同步，Apple Health 同步会覆盖手动维护的值（系统为准）。</p>
       </div>
     </div>
   );
