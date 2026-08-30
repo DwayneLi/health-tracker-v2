@@ -41,6 +41,11 @@ interface SyncResult {
 }
 
 export async function POST(req: NextRequest) {
+  const user = excel.getUser(req);
+  return excel.withUser(user, () => handleSync(req));
+}
+
+async function handleSync(req: NextRequest) {
   try {
     const body = await req.json();
     const records: SyncRecord[] = body.records;

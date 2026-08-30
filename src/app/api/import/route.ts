@@ -191,6 +191,12 @@ function parseLatest(
 // ============================================================
 
 export async function POST(req: NextRequest) {
+  // 以认证用户（x-auth-user）路由到独立数据文件
+  const user = excel.getUser(req);
+  return excel.withUser(user, () => handleImport(req));
+}
+
+async function handleImport(req: NextRequest) {
   try {
     const body = (await req.json()) as MergeBody & {
       sheets?: Record<string, Record<string, unknown>[]>;
@@ -247,7 +253,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         status: "ok",
         mode: "merge",
-        user: body.user || "admin",
+        user: excel.getUser(req),
         synced: result,
       });
     }

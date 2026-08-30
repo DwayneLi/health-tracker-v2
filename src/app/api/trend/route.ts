@@ -11,6 +11,11 @@ import * as excel from "@/lib/excel";
 import { evaluateFlags, DEFAULT_THRESHOLDS } from "@/lib/trend";
 
 export async function GET(req: NextRequest) {
+  const user = excel.getUser(req);
+  return excel.withUser(user, () => handleTrend(req));
+}
+
+async function handleTrend(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const days = parseInt(searchParams.get("days") || "7");

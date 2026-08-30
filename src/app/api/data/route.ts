@@ -22,6 +22,11 @@ import { getTodayStr, getNowStr, formatDateBeijing } from "@/lib/date";
 // ============================================================
 
 export async function POST(req: NextRequest) {
+  const user = excel.getUser(req);
+  return excel.withUser(user, () => handlePost(req));
+}
+
+async function handlePost(req: NextRequest) {
   try {
     const body = await req.json();
     const { action } = body;
@@ -191,6 +196,11 @@ export async function POST(req: NextRequest) {
 // ============================================================
 
 export async function GET(req: NextRequest) {
+  const user = excel.getUser(req);
+  return excel.withUser(user, () => handleGet(req));
+}
+
+async function handleGet(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "dashboard";
   const days = parseInt(searchParams.get("days") || "30");

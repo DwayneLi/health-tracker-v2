@@ -11,6 +11,7 @@
 import * as XLSX from "xlsx";
 import * as fs from "fs";
 import * as path from "path";
+import { AsyncLocalStorage } from "async_hooks";
 import { formatDateBeijing } from "./date";
 
 // ============================================================
@@ -18,8 +19,45 @@ import { formatDateBeijing } from "./date";
 // ============================================================
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const FILE_PATH = () => path.join(DATA_DIR, "health_data.xlsx");
-const BACKUP_PATH = () => path.join(DATA_DIR, "health_data.xlsx.bak");
+
+/**
+ * 多用户：每个用户独立 Excel 文件
+ * - admin（或空）→ data/health_data.xlsx
+ * - family         → data/health_data_family.xlsx
+ */
+export function filePathFor(user?: string): string {
+  const safe = String(user || "admin").replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!safe || safe === "admin") {
+    return path.join(DATA_DIR, "health_data.xlsx");
+  }
+  return path.join(DATA_DIR, `health_data_${safe}.xlsx`);
+}
+
+/** 用户上下文（AsyncLocalStorage）：API 请求处理期间指定当前用户 */
+const userStore = new AsyncLocalStorage<string>();
+
+export function withUser<T>(user: string, fn: () => T): T {
+  return userStore.run(user, fn);
+}
+
+/** 从请求头读取当前登录用户（middleware 写入 x-auth-user） */
+export function getUser(req: {
+  headers: { get(name: string): string | null };
+}): string {
+  return req.headers.get("x-auth-user") || "admin";
+}
+
+function currentUser(): string {
+  return userStore.getStore() || "admin";
+}
+
+function currentFilePath(): string {
+  return filePathFor(currentUser());
+}
+
+function currentBackupPath(): string {
+  return currentFilePath() + ".bak";
+}
 
 // Sheet 名称常量
 export const SHEETS = {
@@ -131,7 +169,7 @@ export function ensureFile(): void {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
 
-  const filePath = FILE_PATH();
+  const filePath = currentFilePath();
   if (!fs.existsSync(filePath)) {
     const wb = XLSX.utils.book_new();
     for (const [name, headers] of Object.entries(HEADERS)) {
@@ -182,7 +220,7 @@ export function ensureFile(): void {
 }
 
 function readWorkbookRaw(): XLSX.WorkBook {
-  const buf = fs.readFileSync(FILE_PATH());
+  const buf = fs.readFileSync(currentFilePath());
   return XLSX.read(buf, { type: "buffer" });
 }
 
@@ -194,10 +232,10 @@ function readWorkbook(): XLSX.WorkBook {
 
 /** 写入 workbook，带备份 */
 function writeWorkbook(wb: XLSX.WorkBook): void {
-  const filePath = FILE_PATH();
+  const filePath = currentFilePath();
 
   if (fs.existsSync(filePath)) {
-    fs.copyFileSync(filePath, BACKUP_PATH());
+    fs.copyFileSync(filePath, currentBackupPath());
   }
 
   const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
@@ -206,7 +244,7 @@ function writeWorkbook(wb: XLSX.WorkBook): void {
 
 /** 检查并发写入冲突 */
 function checkLock(): void {
-  const filePath = FILE_PATH();
+  const filePath = currentFilePath();
   if (!fs.existsSync(filePath)) return;
 
   const stat = fs.statSync(filePath);
@@ -865,5 +903,5 @@ export function addSuggestion(suggestion: {
 
 export function exportWorkbook(): Buffer {
   ensureFile();
-  return fs.readFileSync(FILE_PATH());
+  return fs.readFileSync(currentFilePath());
 }
