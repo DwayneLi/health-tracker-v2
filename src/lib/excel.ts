@@ -220,6 +220,29 @@ function checkLock(): void {
 // 读取操作
 // ============================================================
 
+/** 全量替换所有 Sheet 数据（用于存量数据导入，replace 模式） */
+export function replaceAllData(
+  sheets: Record<string, Record<string, unknown>[]>
+): string[] {
+  ensureFile();
+  const wb = readWorkbookRaw();
+  const replaced: string[] = [];
+
+  for (const [name, rows] of Object.entries(sheets)) {
+    if (!wb.Sheets[name]) continue; // 未知 Sheet 跳过
+    const headers = HEADERS[name] || (rows.length > 0 ? Object.keys(rows[0]) : []);
+    const aoa: unknown[][] = [headers];
+    for (const r of rows) {
+      aoa.push(headers.map((h) => (r[h] ?? "")));
+    }
+    wb.Sheets[name] = XLSX.utils.aoa_to_sheet(aoa);
+    replaced.push(name);
+  }
+
+  writeWorkbook(wb);
+  return replaced;
+}
+
 /** 读取指定 Sheet 的所有行（不含表头） */
 export function readSheet(sheetName: string): Record<string, unknown>[] {
   const wb = readWorkbook();
